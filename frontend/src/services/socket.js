@@ -7,8 +7,11 @@ export const initSocket = (token) => {
     socket.disconnect();
   }
 
-  // Connect to the current host or port 5000 in dev
-  const serverUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin;
+  // Connect to the configured production backend or localhost:5000 in dev
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const serverUrl = backendUrl 
+    ? backendUrl.replace(/\/$/, '')
+    : (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin);
 
   socket = io(serverUrl, {
     auth: { token },
