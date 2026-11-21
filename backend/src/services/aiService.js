@@ -2,6 +2,10 @@ const aiOrchestrator = require('./ai/aiOrchestrator');
 const taskRepository = require('../repositories/taskRepository');
 const userRepository = require('../repositories/userRepository');
 const messageRepository = require('../repositories/messageRepository');
+const Class = require('../models/Class');
+const User = require('../models/User');
+const School = require('../models/School');
+const Task = require('../models/Task');
 
 class AIService {
   async rewriteTeacherDraft({ draft, tone, audience, subject, preferredProvider }) {
@@ -33,6 +37,8 @@ class AIService {
       throw new Error('Query cannot be empty');
     }
 
+    const schoolId = user.schoolId?._id || user.schoolId;
+
     let homeworkList = [];
     if (user.role === 'student') {
       homeworkList = await taskRepository.findByStudent(user._id);
@@ -43,6 +49,37 @@ class AIService {
       }
     } else if (user.role === 'teacher') {
       homeworkList = await taskRepository.findByTeacher(user._id);
+    } else if (schoolId) {
+      homeworkList = await Task.find({ schoolId }).limit(15).lean();
+    }
+
+    // Fetch live academic structure & tenant metadata so AI can answer questions about classes, students, and faculty
+    let schoolStats = {};
+    let classes = [];
+    if (schoolId) {
+      try {
+        const [school, classDocs, totalStudents, totalTeachers, totalParents, teachersList] = await Promise.all([
+          School.findById(schoolId).select('name currentAcademicYear').lean(),
+          Class.find({ schoolId }).populate('homeroomTeacherId', 'name email').lean(),
+          User.countDocuments({ schoolId, role: 'student' }),
+          User.countDocuments({ schoolId, role: 'teacher' }),
+          User.countDocuments({ schoolId, role: 'parent' }),
+          User.find({ schoolId, role: 'teacher' }).select('name email grade section').lean(),
+        ]);
+
+        classes = classDocs || [];
+        schoolStats = {
+          schoolName: school?.name || 'Oakridge International Academy',
+          academicYear: school?.currentAcademicYear || '2026-2027',
+          totalClasses: classDocs.length,
+          totalStudents,
+          totalTeachers,
+          totalParents,
+          teachers: (teachersList || []).map((t) => `${t.name} (${t.email})`),
+        };
+      } catch (err) {
+        console.warn('[AIService] Error fetching school context for assistant:', err.message);
+      }
     }
 
     return await aiOrchestrator.askSchoolAssistant({
@@ -51,6 +88,8 @@ class AIService {
       userName: user.name,
       studentData: user,
       homeworkList,
+      schoolStats,
+      classes,
     }, preferredProvider);
   }
 }

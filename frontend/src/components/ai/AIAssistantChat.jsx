@@ -1,30 +1,42 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { aiService } from '../../services/aiService';
 import { Send, Bot, Sparkles, User, Loader2, AlertCircle } from 'lucide-react';
 
 export const AIAssistantChat = ({ initialPrompt = '' }) => {
-  const [provider, setProvider] = useState('gemini'); // Matching PDF Screen 05
+  const { user } = useAuth();
+  const [provider, setProvider] = useState('groq'); // Default to high-speed Groq Cloud AI
   const [inputQuery, setInputQuery] = useState(initialPrompt);
   const [messages, setMessages] = useState([
     {
-      role: 'user',
-      text: 'Summarize my homework for tomorrow.',
-    },
-    {
       role: 'assistant',
-      text: 'You have Math due tomorrow. Check the Homework page for details.',
-      provider: 'Google Gemini (Gemini Flash)',
+      text: `Hello ${user?.name || 'there'}! I am your Smart School AI Assistant. Ask me anything about academic classes, student enrollments, faculty, homework tasks, or schedules.`,
+      provider: 'Smart School AI',
     },
   ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const quickQuestions = [
-    'Summarize my homework for tomorrow.',
-    'What tasks are currently pending?',
-    'What is my homework completion progress?',
-    'Any updates from Ms. Taylor?',
-  ];
+  const quickQuestions = user?.role === 'super_admin'
+    ? [
+        'How many classes are active?',
+        'How many students are enrolled?',
+        'Who are the assigned teaching faculty?',
+        'Summarize academic classes and schedules.',
+      ]
+    : user?.role === 'teacher'
+    ? [
+        'How many students are in Grade 8?',
+        'What homework assignments are active?',
+        'Draft an announcement for my class.',
+        'Check upcoming period schedules.',
+      ]
+    : [
+        'Summarize my homework for tomorrow.',
+        'What tasks are currently pending?',
+        'What is my homework completion progress?',
+        'Any updates from Ms. Taylor?',
+      ];
 
   const handleSend = async (textToSend = inputQuery) => {
     if (!textToSend.trim()) return;
