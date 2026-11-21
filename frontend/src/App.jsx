@@ -95,16 +95,20 @@ export default function App() {
       }
     }
 
-    // 2. Overview Tab for other roles
-    if (activeTab === 'overview') {
-      if (role === 'teacher') return <TeacherDashboard onNavigate={setActiveTab} />;
-      if (role === 'parent') return <ParentDashboard onNavigate={setActiveTab} />;
-      if (role === 'student') return <StudentDashboard onNavigate={setActiveTab} />;
+    // 2. Teacher Routing
+    if (role === 'teacher') {
+      if (['overview', 'attendance', 'homework', 'messages'].includes(activeTab)) {
+        return <TeacherDashboard activeTab={activeTab} onNavigate={setActiveTab} />;
+      }
+      if (activeTab === 'ai-assistant') {
+        return <AIAssistantPage />;
+      }
     }
 
-    // 3. Attendance Tab (for Teacher)
-    if (activeTab === 'attendance' && role === 'teacher') {
-      return <TeacherDashboard onNavigate={setActiveTab} />;
+    // 3. Overview Tab for other roles
+    if (activeTab === 'overview') {
+      if (role === 'parent') return <ParentDashboard onNavigate={setActiveTab} />;
+      if (role === 'student') return <StudentDashboard onNavigate={setActiveTab} />;
     }
 
     // 4. Homework Tab
