@@ -69,7 +69,7 @@ class AIService {
 
         classes = classDocs || [];
         schoolStats = {
-          schoolName: school?.name || 'Oakridge International Academy',
+          schoolName: school?.name || 'Hogwarts',
           academicYear: school?.currentAcademicYear || '2026-2027',
           totalClasses: classDocs.length,
           totalStudents,

@@ -98,7 +98,7 @@ Keep it strictly grounded in the provided data.`;
     const prompt = `User (${userName}, Role: ${role}) asked: "${query}"
 
 Here is the live verified school records from MongoDB:
-- School: ${schoolStats?.schoolName || 'Oakridge International Academy'}
+- School: ${schoolStats?.schoolName || 'Hogwarts'}
 - Current Academic Year: ${schoolStats?.academicYear || '2026-2027'}
 - Total Academic Classes: ${schoolStats?.totalClasses || (classes ? classes.length : 2)}
 - Active Classes List:
@@ -212,17 +212,17 @@ ${pendingList}
       const classList = classes && classes.length > 0
         ? classes.map(c => `• **${c.name} - Section ${c.section}** (${c.roomNumber || 'Room 101'}, Academic Year: ${c.academicYear || '2026-2027'})`).join('\n')
         : '• **Grade 8 - Section A** (Room 204)\n• **Grade 9 - Section A** (Room 302)';
-      return `Oakridge International Academy currently has **${totalClasses} active academic classes**:\n\n${classList}\n\nYou can click on any class in the Classes & Structure dashboard to inspect the enrolled student roster and faculty.`;
+      return `Hogwarts currently has **${totalClasses} active academic classes**:\n\n${classList}\n\nYou can click on any class in the Classes & Structure dashboard to inspect the enrolled student roster and faculty.`;
     }
 
     if (q.includes('student') || q.includes('how many student') || q.includes('enroll')) {
       const count = schoolStats?.totalStudents ?? 24;
-      return `There are currently **${count} active students** enrolled across the classes in Oakridge Academy.`;
+      return `There are currently **${count} active students** enrolled across the classes in Hogwarts.`;
     }
 
     if (q.includes('teacher') || q.includes('faculty')) {
       const teachers = schoolStats?.teachers && schoolStats.teachers.length > 0 ? schoolStats.teachers.join(', ') : 'Ms. Taylor (teacher@school.com)';
-      return `The active teaching faculty at Oakridge Academy includes: **${teachers}**.`;
+      return `The active teaching faculty at Hogwarts includes: **${teachers}**.`;
     }
 
     const pending = homeworkList.filter(t => t.status === 'pending');
@@ -240,7 +240,7 @@ ${pendingList}
       return `You have completed ${completed.length} task(s) and have ${pending.length} pending task(s). Keep up the great effort!`;
     }
 
-    return `Hello ${userName}! Based on your current school records, you have ${totalClasses} active classes and ${schoolStats?.totalStudents ?? 24} enrolled students in Oakridge International Academy. You can ask me to summarize homework, check class schedules, or review attendance.`;
+    return `Hello ${userName}! Based on your current school records, you have ${totalClasses} active classes and ${schoolStats?.totalStudents ?? 24} enrolled students in Hogwarts. You can ask me to summarize homework, check class schedules, or review attendance.`;
   }
 }
 

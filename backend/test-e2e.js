@@ -129,7 +129,7 @@ async function runTests() {
 
     // Test 6: Superadmin Invites Teacher, Student, and Parent via Email
     console.log('\n[6] Superadmin Sending Real Email Invitations for Teacher, Student & Parent...');
-    const teacherEmail = `teacher.${timestamp}@oakridge.edu`;
+    const teacherEmail = `teacher.${timestamp}@hogwarts.edu`;
     const teacherInviteRes = await request(
       '/api/school/invitations',
       'POST',
@@ -139,7 +139,7 @@ async function runTests() {
     console.log(`Teacher Invite Status: ${teacherInviteRes.status}, Token: ${teacherInviteRes.data?.token?.slice(0, 16)}...`);
     const teacherInviteToken = teacherInviteRes.data?.token;
 
-    const studentEmail = `student.${timestamp}@oakridge.edu`;
+    const studentEmail = `student.${timestamp}@hogwarts.edu`;
     const studentInviteRes = await request(
       '/api/school/invitations',
       'POST',
@@ -149,7 +149,7 @@ async function runTests() {
     console.log(`Student Invite Status: ${studentInviteRes.status}, Token: ${studentInviteRes.data?.token?.slice(0, 16)}...`);
     const studentInviteToken = studentInviteRes.data?.token;
 
-    const parentEmail = `parent.${timestamp}@oakridge.edu`;
+    const parentEmail = `parent.${timestamp}@hogwarts.edu`;
     const parentInviteRes = await request(
       '/api/school/invitations',
       'POST',

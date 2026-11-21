@@ -65,7 +65,7 @@ export const Navbar = ({ currentSection = 'Overview' }) => {
           <div className="hidden sm:flex items-center text-xs text-slate-400 font-medium space-x-2 border-l border-slate-200 pl-4">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
             <span className="font-semibold text-slate-700 max-w-[180px] truncate">
-              {user?.schoolId?.name || user?.schoolName || 'Smart School Connect'}
+              {user?.schoolId?.name || user?.schoolName || 'Hogwarts'}
             </span>
             <span>•</span>
             <span className="text-slate-500 font-medium">{currentSection}</span>

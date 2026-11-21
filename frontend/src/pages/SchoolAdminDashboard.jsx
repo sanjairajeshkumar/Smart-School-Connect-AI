@@ -294,7 +294,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
             </span>
           </div>
           <p className="text-sm text-slate-500 mt-1 font-medium">
-            Academic Year {analytics?.academicYear || '2026-2027'} • Tenant: {user?.schoolId?.name || 'Oakridge International Academy'}
+            Academic Year {analytics?.academicYear || '2026-2027'} • Tenant: {user?.schoolId?.name || 'Hogwarts'}
           </p>
         </div>
 
@@ -539,7 +539,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
             <div>
               <h3 className="text-lg font-bold text-blue-950">Academic Organization & Class Schedule</h3>
               <p className="text-xs text-blue-800 mt-1 leading-relaxed">
-                Configure grade sections, assign homeroom instructors, and track live student enrollments across Oakridge Academy.
+                Configure grade sections, assign homeroom instructors, and track live student enrollments across Hogwarts.
               </p>
             </div>
             <div className="flex items-center space-x-4 text-xs font-semibold text-blue-900">
@@ -1465,7 +1465,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
             {/* Modal Footer */}
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
               <span className="text-xs text-slate-400">
-                Tenant: Oakridge International Academy • Multi-tenant Academic System
+                Tenant: {user?.schoolId?.name || 'Hogwarts'} • Multi-tenant Academic System
               </span>
 
               <button

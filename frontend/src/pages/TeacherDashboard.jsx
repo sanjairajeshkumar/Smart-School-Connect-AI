@@ -264,7 +264,7 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
             </span>
           </div>
           <p className="text-sm text-slate-500 mt-1 font-medium">
-            Tenant: {user?.schoolId?.name || 'Oakridge International Academy'} • Homeroom: {user?.grade || 'Grade 8'} - Section {user?.section || 'A'}
+            Tenant: {user?.schoolId?.name || 'Hogwarts'} • Homeroom: {user?.grade || 'Grade 8'} - Section {user?.section || 'A'}
           </p>
         </div>
 

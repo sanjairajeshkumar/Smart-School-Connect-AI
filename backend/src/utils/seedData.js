@@ -12,15 +12,15 @@ const seedInitialData = async () => {
     console.log('[System Init] Checking multi-tenant SaaS foundation and default accounts...');
 
     // 1. Ensure primary showcase School Tenant exists
-    let defaultSchool = await School.findOne({ slug: 'oakridge-academy' });
+    let defaultSchool = await School.findOne({ $or: [{ slug: 'hogwarts' }, { slug: 'oakridge-academy' }] });
     if (!defaultSchool) {
       defaultSchool = await School.create({
-        name: 'Oakridge International Academy',
-        slug: 'oakridge-academy',
-        domain: 'oakridge.edu',
-        billingEmail: 'admin@oakridge.edu',
-        address: '100 Academic Way, Metro City',
-        phone: '+1 (555) 012-3456',
+        name: 'Hogwarts',
+        slug: 'hogwarts',
+        domain: 'hogwarts.edu',
+        billingEmail: 'headmaster@hogwarts.edu',
+        address: 'Hogwarts Castle, Highlands, Scotland',
+        phone: '+44 (1632) 960001',
         subscriptionPlan: 'pro',
         subscriptionStatus: 'active',
         seatsLimit: 500,
@@ -32,6 +32,12 @@ const seedInitialData = async () => {
         },
       });
       console.log(`[System Init] Created primary school tenant: ${defaultSchool.name}`);
+    } else {
+      defaultSchool.name = 'Hogwarts';
+      defaultSchool.slug = 'hogwarts';
+      defaultSchool.domain = 'hogwarts.edu';
+      defaultSchool.billingEmail = 'headmaster@hogwarts.edu';
+      await defaultSchool.save();
     }
 
     // 2. Ensure default academic classes exist
