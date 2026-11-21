@@ -1,0 +1,13 @@
+{
+  "name": "smart-school-connect",
+  "version": "1.0.0",
+  "description": "AI-Powered Smart School Connect platform for Teachers, Parents, and Students",
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "seed": "cd backend && npm run seed",
+    "backend": "cd backend && npm run dev",
+    "frontend": "cd frontend && npm run dev"
+  }
+}
