@@ -220,21 +220,29 @@ class SchoolService {
       expiresAt,
     });
 
-    // Send real transactional email
-    await emailService.sendInvitationEmail({
-      to: cleanEmail,
-      name: name.trim(),
-      role,
-      schoolName: school.name,
-      token,
-      invitedByName: inviterUser.name,
-    });
+    // Dispatch email (resilient so firewall/SMTP delays never freeze the admin UI)
+    let emailResult = { success: false };
+    try {
+      emailResult = await emailService.sendInvitationEmail({
+        to: cleanEmail,
+        name: name.trim(),
+        role,
+        schoolName: school.name,
+        token,
+        invitedByName: inviterUser.name,
+      });
+    } catch (mailErr) {
+      console.warn(`[Invitation] Email dispatch caught for ${cleanEmail}:`, mailErr.message);
+    }
 
     return {
       success: true,
-      message: `Invitation successfully sent to ${cleanEmail}`,
+      message: emailResult?.success
+        ? `Invitation successfully emailed to ${cleanEmail}`
+        : `Invitation created for ${cleanEmail}! Activation link is ready.`,
       invitationId: invitation._id,
       token: invitation.token,
+      emailSent: !!emailResult?.success,
     };
   }
 

@@ -8,7 +8,7 @@ class EmailService {
   }
 
   async initTransporter() {
-    // If SMTP user is provided, use configured production/staging SMTP
+    // If SMTP user is provided, use configured production/staging SMTP with strict timeouts
     if (config.smtp.user && config.smtp.pass) {
       this.transporter = nodemailer.createTransport({
         host: config.smtp.host,
@@ -18,39 +18,95 @@ class EmailService {
           user: config.smtp.user,
           pass: config.smtp.pass,
         },
+        connectionTimeout: 3500,
+        greetingTimeout: 3500,
+        socketTimeout: 3500,
       });
       console.log(`Email Service configured with SMTP host: ${config.smtp.host}`);
     } else {
-      // In development or when SMTP is not configured, create an Ethereal test account or logging transporter
-      try {
-        const testAccount = await nodemailer.createTestAccount();
-        this.transporter = nodemailer.createTransport({
-          host: 'smtp.ethereal.email',
-          port: 587,
-          secure: false,
-          auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-          },
-        });
-        console.log(`[Email Service] Created ethereal development mailbox: ${testAccount.user}`);
-      } catch (err) {
-        console.warn('[Email Service] Ethereal fallback unavailable, using direct console logger:', err.message);
-        this.transporter = {
-          sendMail: async (options) => {
-            console.log('\n=================== TRANSACTIONAL EMAIL ===================');
-            console.log(`TO: ${options.to}`);
-            console.log(`SUBJECT: ${options.subject}`);
-            console.log(`PREVIEW:\n${options.text || options.html}`);
-            console.log('===========================================================\n');
-            return { messageId: 'simulated-' + Date.now() };
-          },
-        };
-      }
+      // In development or when SMTP is not configured, create a fast console logging transporter
+      this.transporter = {
+        sendMail: async (options) => {
+          console.log('\n=================== TRANSACTIONAL EMAIL (LOCAL LOG) ===================');
+          console.log(`TO: ${options.to}`);
+          console.log(`SUBJECT: ${options.subject}`);
+          console.log(`CONTENT:\n${options.text || options.html}`);
+          console.log('========================================================================\n');
+          return { messageId: 'simulated-' + Date.now() };
+        },
+      };
     }
   }
 
   async sendMail(mailOptions) {
+    // 1. If Resend HTTPS API Key is provided (works on Render free tier over port 443)
+    if (config.resendApiKey) {
+      try {
+        console.log(`[Email Service] Dispatching via Resend HTTPS API to ${mailOptions.to}...`);
+        const sender = config.smtp.from && !config.smtp.from.includes('gmail.com')
+          ? config.smtp.from
+          : 'Smart School Connect <onboarding@resend.dev>';
+
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: sender,
+            to: Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to],
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            text: mailOptions.text,
+          }),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          console.log(`[Email Service] Successfully sent via Resend API! Message ID: ${data.id}`);
+          return { success: true, messageId: data.id };
+        } else {
+          console.warn('[Email Service] Resend API response error:', data);
+        }
+      } catch (resendError) {
+        console.warn('[Email Service] Resend dispatch failed:', resendError.message);
+      }
+    }
+
+    // 2. If Brevo HTTPS API Key is provided (works on Render free tier over port 443)
+    if (config.brevoApiKey) {
+      try {
+        console.log(`[Email Service] Dispatching via Brevo HTTPS API to ${mailOptions.to}...`);
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': config.brevoApiKey,
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: 'Smart School Connect', email: config.smtp.user || 'noreply@schoolconnect.io' },
+            to: [{ email: mailOptions.to }],
+            subject: mailOptions.subject,
+            htmlContent: mailOptions.html,
+            textContent: mailOptions.text,
+          }),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          console.log(`[Email Service] Successfully sent via Brevo API! Message ID: ${data.messageId}`);
+          return { success: true, messageId: data.messageId };
+        } else {
+          console.warn('[Email Service] Brevo API response error:', data);
+        }
+      } catch (brevoError) {
+        console.warn('[Email Service] Brevo dispatch failed:', brevoError.message);
+      }
+    }
+
+    // 3. Fallback to Nodemailer SMTP (with strict timeout to prevent Render free-tier hangs)
     if (!this.transporter) {
       await this.initTransporter();
     }
@@ -61,8 +117,13 @@ class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(options);
-      const previewUrl = nodemailer.getTestMessageUrl(info);
+      const sendPromise = this.transporter.sendMail(options);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP timeout: Port 465/587 blocked by cloud host')), 3500)
+      );
+
+      const info = await Promise.race([sendPromise, timeoutPromise]);
+      const previewUrl = nodemailer.getTestMessageUrl ? nodemailer.getTestMessageUrl(info) : null;
       if (previewUrl) {
         console.log(`[Email Service] Message sent! Preview at: ${previewUrl}`);
       }
@@ -72,8 +133,7 @@ class EmailService {
         previewUrl: previewUrl || null,
       };
     } catch (error) {
-      console.error('[Email Service] Failed to send email:', error.message);
-      // Don't crash auth flow in dev if external network fails, return details
+      console.warn(`[Email Service] SMTP dispatch warning for ${mailOptions.to}:`, error.message);
       return {
         success: false,
         error: error.message,

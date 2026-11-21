@@ -121,7 +121,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
     e.preventDefault();
     setInviteLoading(true);
     try {
-      await schoolService.sendInvitation({
+      const res = await schoolService.sendInvitation({
         email: inviteEmail,
         name: inviteName,
         role: inviteRole,
@@ -130,8 +130,10 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       });
       addNotification({
         type: 'success',
-        title: 'Invitation Dispatched',
-        message: `Onboarding email sent to ${inviteEmail}`,
+        title: 'Invitation Ready',
+        message: res.emailSent
+          ? `Onboarding email sent to ${inviteEmail}`
+          : `Invitation created! You can copy the activation link below.`,
       });
       setIsInviteOpen(false);
       setInviteEmail('');

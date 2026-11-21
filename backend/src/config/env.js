@@ -27,9 +27,10 @@ module.exports = {
     from: process.env.SMTP_FROM || '"Smart School Connect" <noreply@schoolconnect.io>',
   },
   
-  // Resend / SendGrid optional API Keys
+  // Resend / SendGrid / Brevo optional API Keys
   resendApiKey: process.env.RESEND_API_KEY,
   sendgridApiKey: process.env.SENDGRID_API_KEY,
+  brevoApiKey: process.env.BREVO_API_KEY,
   
   // AI Provider Keys
   groqApiKey: process.env.GROQ_API_KEY,
