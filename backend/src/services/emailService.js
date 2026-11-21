@@ -39,7 +39,40 @@ class EmailService {
   }
 
   async sendMail(mailOptions) {
-    // 1. If Resend HTTPS API Key is provided (works on Render free tier over port 443)
+    // 1. If Brevo HTTPS API Key is provided (Sends to ANY recipient on port 443 with 0 restrictions)
+    if (config.brevoApiKey) {
+      try {
+        console.log(`[Email Service] Dispatching via Brevo HTTPS API to ${mailOptions.to}...`);
+        const senderEmail = process.env.BREVO_SENDER_EMAIL || config.smtp.user || 'sanjairajeshkumar@gmail.com';
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': config.brevoApiKey,
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: 'Smart School Connect', email: senderEmail },
+            to: [{ email: mailOptions.to }],
+            subject: mailOptions.subject,
+            htmlContent: mailOptions.html,
+            textContent: mailOptions.text,
+          }),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          console.log(`[Email Service] Successfully sent via Brevo API! Message ID: ${data.messageId}`);
+          return { success: true, messageId: data.messageId };
+        } else {
+          console.warn('[Email Service] Brevo API response error:', data);
+        }
+      } catch (brevoError) {
+        console.warn('[Email Service] Brevo dispatch failed:', brevoError.message);
+      }
+    }
+
+    // 2. If Resend HTTPS API Key is provided
     if (config.resendApiKey) {
       try {
         console.log(`[Email Service] Dispatching via Resend HTTPS API to ${mailOptions.to}...`);
@@ -71,38 +104,6 @@ class EmailService {
         }
       } catch (resendError) {
         console.warn('[Email Service] Resend dispatch failed:', resendError.message);
-      }
-    }
-
-    // 2. If Brevo HTTPS API Key is provided (works on Render free tier over port 443)
-    if (config.brevoApiKey) {
-      try {
-        console.log(`[Email Service] Dispatching via Brevo HTTPS API to ${mailOptions.to}...`);
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'api-key': config.brevoApiKey,
-            'Content-Type': 'application/json',
-            'accept': 'application/json',
-          },
-          body: JSON.stringify({
-            sender: { name: 'Smart School Connect', email: config.smtp.user || 'noreply@schoolconnect.io' },
-            to: [{ email: mailOptions.to }],
-            subject: mailOptions.subject,
-            htmlContent: mailOptions.html,
-            textContent: mailOptions.text,
-          }),
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-          console.log(`[Email Service] Successfully sent via Brevo API! Message ID: ${data.messageId}`);
-          return { success: true, messageId: data.messageId };
-        } else {
-          console.warn('[Email Service] Brevo API response error:', data);
-        }
-      } catch (brevoError) {
-        console.warn('[Email Service] Brevo dispatch failed:', brevoError.message);
       }
     }
 
