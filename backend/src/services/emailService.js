@@ -43,7 +43,7 @@ class EmailService {
     if (config.brevoApiKey) {
       try {
         console.log(`[Email Service] Dispatching via Brevo HTTPS API to ${mailOptions.to}...`);
-        const senderEmail = process.env.BREVO_SENDER_EMAIL || config.smtp.user || 'sanjairajeshkumar@gmail.com';
+        const senderEmail = process.env.BREVO_SENDER_EMAIL || 'sanjaiug21@gmail.com';
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
