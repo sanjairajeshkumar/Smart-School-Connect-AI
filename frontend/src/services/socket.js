@@ -8,7 +8,7 @@ export const initSocket = (token) => {
   }
 
   // Connect to the configured production backend or localhost:5000 in dev
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || (import.meta.env.PROD ? 'https://smart-school-connect-ai.onrender.com' : '');
   const serverUrl = backendUrl 
     ? backendUrl.replace(/\/$/, '')
     : (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin);

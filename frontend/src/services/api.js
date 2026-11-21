@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+const backendUrl = import.meta.env.VITE_BACKEND_URL || (import.meta.env.PROD ? 'https://smart-school-connect-ai.onrender.com' : '');
 
 const api = axios.create({
   baseURL: backendUrl ? `${backendUrl.replace(/\/$/, '')}/api` : '/api',
