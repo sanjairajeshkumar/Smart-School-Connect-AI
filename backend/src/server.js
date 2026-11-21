@@ -11,12 +11,12 @@ const startServer = async (port = config.port) => {
   await connectDB();
   await seedInitialData();
 
-  serverInstance = http.createServer(app);
-  socketService.init(serverInstance);
-
   const targetPort = parseInt(port, 10) || 5000;
 
   return new Promise((resolve, reject) => {
+    serverInstance = http.createServer(app);
+    socketService.init(serverInstance);
+
     serverInstance.listen(targetPort, '0.0.0.0', () => {
       console.log(`\n=============================================================`);
       console.log(`🚀 Smart School Connect Multi-Tenant SaaS Running`);
@@ -29,6 +29,7 @@ const startServer = async (port = config.port) => {
     });
 
     serverInstance.on('error', (err) => {
+      console.error(`[Server Error on port ${targetPort}]:`, err.message);
       reject(err);
     });
   });
@@ -41,6 +42,15 @@ const stopServer = async () => {
   }
   await disconnectDB();
 };
+
+const handleTermination = async (signal) => {
+  console.log(`\n[Server] Received ${signal}. Shutting down cleanly...`);
+  await stopServer();
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => handleTermination('SIGTERM'));
+process.on('SIGINT', () => handleTermination('SIGINT'));
 
 if (require.main === module) {
   startServer().catch((err) => {
