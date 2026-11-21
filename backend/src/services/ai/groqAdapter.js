@@ -3,17 +3,13 @@ const https = require('https');
 class GroqAdapter {
   constructor(apiKey) {
     this.apiKey = apiKey;
-    this.name = 'Groq (Llama-3.3-70b)';
+    this.name = 'Groq Cloud AI';
     this.code = 'groq';
   }
 
-  async generateText(prompt, systemInstruction = 'You are a school communications AI assistant.') {
-    if (!this.apiKey) {
-      throw new Error('Groq API Key is not configured');
-    }
-
+  async _callGroq(model, prompt, systemInstruction) {
     const payload = JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model,
       messages: [
         { role: 'system', content: systemInstruction },
         { role: 'user', content: prompt }
@@ -61,6 +57,37 @@ class GroqAdapter {
       req.write(payload);
       req.end();
     });
+  }
+
+  async generateText(prompt, systemInstruction = 'You are a school communications AI assistant.') {
+    if (!this.apiKey) {
+      throw new Error('Groq API Key is not configured');
+    }
+
+    const candidateModels = [
+      process.env.GROQ_MODEL,
+      'openai/gpt-oss-120b',
+      'openai/gpt-oss-20b',
+      'llama-3.3-70b-versatile',
+      'llama3-70b-8192',
+      'qwen/qwen3.8-27b',
+    ].filter(Boolean);
+
+    let lastError = null;
+    for (const model of candidateModels) {
+      try {
+        const result = await this._callGroq(model, prompt, systemInstruction);
+        return result;
+      } catch (err) {
+        lastError = err;
+        if (err.message.includes('model_not_found') || err.message.includes('404')) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw lastError || new Error('All Groq candidate models failed');
   }
 }
 
