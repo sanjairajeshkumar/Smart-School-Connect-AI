@@ -21,6 +21,11 @@ export const schoolService = {
     return res.data;
   },
 
+  async getClassDetails(classId) {
+    const res = await api.get(`/school/classes/${classId}`);
+    return res.data;
+  },
+
   async createClass(data) {
     const res = await api.post('/school/classes', data);
     return res.data;

@@ -15,6 +15,7 @@ router.get('/analytics', permitRoles('school_admin', 'super_admin'), schoolContr
 
 // Academic Classes
 router.get('/classes', schoolController.getClasses);
+router.get('/classes/:id', schoolController.getClassDetails);
 router.post('/classes', permitRoles('school_admin', 'super_admin'), schoolController.createClass);
 
 // Users Directory

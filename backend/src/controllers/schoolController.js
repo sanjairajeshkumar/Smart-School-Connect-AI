@@ -37,6 +37,15 @@ class SchoolController {
     }
   }
 
+  async getClassDetails(req, res, next) {
+    try {
+      const details = await schoolService.getClassDetails(req.schoolId, req.params.id);
+      res.status(200).json({ success: true, data: details });
+    } catch (error) {
+      res.status(404).json({ success: false, message: error.message });
+    }
+  }
+
   async createClass(req, res, next) {
     try {
       const newClass = await schoolService.createClass(req.schoolId, req.body);

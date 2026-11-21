@@ -155,6 +155,34 @@ class SchoolService {
   }
 
   /**
+   * Get Full Class Details with Enrolled Students and Teachers
+   */
+  async getClassDetails(schoolId, classId) {
+    const cls = await Class.findOne({ _id: classId, schoolId }).populate('homeroomTeacherId', 'name email phone avatar');
+    if (!cls) throw new Error('Class not found');
+
+    const students = await User.find({ schoolId, classId, role: 'student' })
+      .select('name email status grade section phone avatar parentId createdAt')
+      .populate('parentId', 'name email phone');
+
+    const teachers = await User.find({ schoolId, classId, role: 'teacher' })
+      .select('name email status grade section phone avatar createdAt');
+
+    // If homeroom teacher is set but not in class teachers list, add them
+    if (cls.homeroomTeacherId && !teachers.some((t) => t._id.toString() === cls.homeroomTeacherId._id.toString())) {
+      teachers.unshift(cls.homeroomTeacherId);
+    }
+
+    return {
+      class: cls,
+      students,
+      teachers,
+      totalStudents: students.length,
+      totalTeachers: teachers.length,
+    };
+  }
+
+  /**
    * Send Role-Based Email Invitation (Teacher, Parent, Student, Staff)
    */
   async sendInvitation(inviterUser, { email, name, role, classId, studentId }) {
