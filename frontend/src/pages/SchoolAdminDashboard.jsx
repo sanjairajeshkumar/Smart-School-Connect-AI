@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { schoolService } from '../services/schoolService';
-import { feeService } from '../services/feeService';
 import { authService } from '../services/authService';
 import { attendanceService } from '../services/attendanceService';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -47,7 +46,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
   const [invitations, setInvitations] = useState([]);
   const [directoryUsers, setDirectoryUsers] = useState([]);
   const [studentsList, setStudentsList] = useState([]);
-  const [feeInvoices, setFeeInvoices] = useState([]);
   const [attendanceOverview, setAttendanceOverview] = useState(null);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +53,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [feeStatusFilter, setFeeStatusFilter] = useState('all');
 
   // Modals
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -73,13 +70,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
   const [newClassRoom, setNewClassRoom] = useState('');
   const [classLoading, setClassLoading] = useState(false);
 
-  const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
-  const [feeStudentId, setFeeStudentId] = useState('');
-  const [feeTitle, setFeeTitle] = useState('');
-  const [feeAmount, setFeeAmount] = useState('');
-  const [feeDueDate, setFeeDueDate] = useState('');
-  const [feeLoading, setFeeLoading] = useState(false);
-
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [adminName, setAdminName] = useState(user?.name || 'Super Administrator');
   const [adminEmail, setAdminEmail] = useState(user?.email || 'admin');
@@ -91,13 +81,12 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [analyticsRes, classRes, inviteRes, studentRes, usersRes, feeRes, attRes] = await Promise.all([
+      const [analyticsRes, classRes, inviteRes, studentRes, usersRes, attRes] = await Promise.all([
         schoolService.getAnalytics().catch(() => ({ success: false })),
         schoolService.getClasses().catch(() => ({ success: false })),
         schoolService.getInvitations().catch(() => ({ success: false })),
         authService.getLinkedStudents().catch(() => ({ success: false })),
         schoolService.getUsers().catch(() => ({ success: false })),
-        feeService.getInvoices().catch(() => ({ success: false })),
         attendanceService.getSchoolOverview(attendanceDate).catch(() => ({ success: false })),
       ]);
 
@@ -106,7 +95,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       if (inviteRes.success) setInvitations(inviteRes.data || []);
       if (studentRes.success) setStudentsList(studentRes.data || []);
       if (usersRes.success) setDirectoryUsers(usersRes.data || []);
-      if (feeRes.success) setFeeInvoices(feeRes.data || []);
       if (attRes.success) setAttendanceOverview(attRes.data);
     } catch (err) {
       console.error('Failed to load school admin dashboard:', err);
@@ -194,57 +182,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
     }
   };
 
-  // Create Fee Invoice
-  const handleCreateFeeInvoice = async (e) => {
-    e.preventDefault();
-    setFeeLoading(true);
-    try {
-      await feeService.createInvoice({
-        studentId: feeStudentId,
-        title: feeTitle,
-        amount: feeAmount,
-        dueDate: feeDueDate,
-      });
-      addNotification({
-        type: 'success',
-        title: 'Invoice Issued',
-        message: `Invoice for $${feeAmount} generated.`,
-      });
-      setIsFeeModalOpen(false);
-      setFeeTitle('');
-      setFeeAmount('');
-      setFeeDueDate('');
-      loadData();
-    } catch (err) {
-      addNotification({
-        type: 'error',
-        title: 'Error Issuing Invoice',
-        message: err.response?.data?.message || err.message,
-      });
-    } finally {
-      setFeeLoading(false);
-    }
-  };
-
-  // Record Payment
-  const handlePayInvoice = async (invoiceId) => {
-    try {
-      await feeService.payInvoice(invoiceId, { paymentReference: `ADMIN-MANUAL-${Date.now().toString().slice(-6)}` });
-      addNotification({
-        type: 'success',
-        title: 'Payment Recorded',
-        message: 'Invoice has been marked as PAID.',
-      });
-      loadData();
-    } catch (err) {
-      addNotification({
-        type: 'error',
-        title: 'Payment Error',
-        message: err.message,
-      });
-    }
-  };
-
   // Revoke Invitation
   const handleRevokeInvite = async (id) => {
     try {
@@ -290,8 +227,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
     return <LoadingSpinner text="Loading multi-tenant school metrics..." />;
   }
 
-  const { financials } = analytics || {};
-
   // Filtered Directory Users
   const filteredDirectory = directoryUsers.filter((u) => {
     const matchesSearch =
@@ -299,15 +234,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     return matchesSearch && matchesRole;
-  });
-
-  // Filtered Invoices
-  const filteredInvoices = feeInvoices.filter((inv) => {
-    const matchesSearch =
-      (inv.studentName && inv.studentName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (inv.title && inv.title.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStatus = feeStatusFilter === 'all' || inv.status === feeStatusFilter;
-    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -361,16 +287,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
             >
               <MailPlus className="w-4 h-4" />
               <span>+ Invite Member</span>
-            </button>
-          )}
-
-          {activeTab === 'fees' && (
-            <button
-              onClick={() => setIsFeeModalOpen(true)}
-              className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Issue Invoice</span>
             </button>
           )}
 
@@ -470,42 +386,42 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
             </div>
           </div>
 
-          {/* Fee Analytics Card Snapshot */}
+          {/* School Academic & Enrollment Summary Card */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-                  <CreditCard className="w-5 h-5 text-emerald-600" />
-                  <span>Fee Collection Snapshot</span>
+                  <Building2 className="w-5 h-5 text-blue-600" />
+                  <span>Classroom & Cohort Management Snapshot</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Real-time tuition billing and receipt reconciliation</p>
+                <p className="text-xs text-slate-500 mt-0.5">Academic cohorts, faculty assignments, and linked parent guardians</p>
               </div>
               <button
-                onClick={() => onNavigate('fees')}
+                onClick={() => onNavigate('classes')}
                 className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-1"
               >
-                <span>Open Invoicing Portal</span>
+                <span>Manage Class Rosters</span>
                 <ArrowUpRight className="w-4 h-4" />
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2 border-t border-slate-100">
               <div>
-                <span className="text-xs text-slate-400 font-medium block">Total Billed (Term)</span>
+                <span className="text-xs text-slate-400 font-medium block">Active Classrooms</span>
                 <span className="text-2xl font-black text-slate-900 mt-1 block">
-                  ${(financials?.totalBilled || 0).toLocaleString()}
+                  {classes.length} Classes
                 </span>
               </div>
               <div>
-                <span className="text-xs text-slate-400 font-medium block">Collected to Date</span>
+                <span className="text-xs text-slate-400 font-medium block">Linked Parent Guardians</span>
+                <span className="text-2xl font-black text-indigo-600 mt-1 block">
+                  {analytics?.parentsCount || 0} Guardians
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-400 font-medium block">Average Students per Class</span>
                 <span className="text-2xl font-black text-emerald-600 mt-1 block">
-                  ${(financials?.totalCollected || 0).toLocaleString()}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-400 font-medium block">Outstanding Balance</span>
-                <span className="text-2xl font-black text-amber-600 mt-1 block">
-                  ${(financials?.pendingAmount || 0).toLocaleString()}
+                  {classes.length > 0 ? Math.round((analytics?.studentsCount || 0) / classes.length) : 0} Students
                 </span>
               </div>
             </div>
@@ -830,146 +746,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       )}
 
       {/* ========================================================================= */}
-      {/* VIEW 4: FEES & INVOICING                                                  */}
-      {/* ========================================================================= */}
-      {activeTab === 'fees' && (
-        <div className="space-y-8 animate-in fade-in duration-200">
-          
-          {/* Financial KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-              <span className="text-xs font-semibold text-slate-500 block mb-1">Total Billed</span>
-              <span className="text-3xl font-extrabold text-slate-900 block">
-                ${(financials?.totalBilled || 0).toLocaleString()}
-              </span>
-              <span className="text-[11px] text-slate-400 mt-1 block">Current Term Invoices</span>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-              <span className="text-xs font-semibold text-slate-500 block mb-1">Collected to Date</span>
-              <span className="text-3xl font-extrabold text-emerald-600 block">
-                ${(financials?.totalCollected || 0).toLocaleString()}
-              </span>
-              <span className="text-[11px] text-emerald-600 font-medium mt-1 block">Settled Tuition Fees</span>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-              <span className="text-xs font-semibold text-slate-500 block mb-1">Outstanding Balance</span>
-              <span className="text-3xl font-extrabold text-amber-600 block">
-                ${(financials?.pendingAmount || 0).toLocaleString()}
-              </span>
-              <span className="text-[11px] text-amber-600 font-medium mt-1 block">
-                {financials?.pendingInvoices || 0} Unpaid Invoices
-              </span>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-              <span className="text-xs font-semibold text-slate-500 block mb-1">Collection Rate</span>
-              <span className="text-3xl font-extrabold text-purple-600 block">
-                {financials?.collectionRate || 0}%
-              </span>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div
-                  className="bg-purple-600 h-1.5 rounded-full"
-                  style={{ width: `${financials?.collectionRate || 0}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Fee Invoices Table */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-                  <CreditCard className="w-5 h-5 text-emerald-600" />
-                  <span>Tuition Invoices & Fee Ledger</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Manage student invoices, payment receipts, and reconciliation</p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                {['all', 'pending', 'paid'].map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => setFeeStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition ${
-                      feeStatusFilter === st
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {st}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold">
-                    <th className="pb-3 pl-2">Student Name</th>
-                    <th className="pb-3">Fee Title / Description</th>
-                    <th className="pb-3">Due Date</th>
-                    <th className="pb-3">Amount</th>
-                    <th className="pb-3">Status</th>
-                    <th className="pb-3 text-right pr-2">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {filteredInvoices.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="py-8 text-center text-slate-400 font-medium">
-                        No fee invoices recorded yet. Click "+ Issue Invoice" to bill tuition or fees.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredInvoices.map((inv) => (
-                      <tr key={inv._id} className="hover:bg-slate-50 transition">
-                        <td className="py-3.5 pl-2 font-bold text-slate-900">
-                          {inv.studentName || inv.studentId?.name || 'Enrolled Student'}
-                        </td>
-                        <td className="py-3.5 font-medium text-slate-800">{inv.title}</td>
-                        <td className="py-3.5 text-slate-500">
-                          {new Date(inv.dueDate).toLocaleDateString()}
-                        </td>
-                        <td className="py-3.5 font-black text-slate-900">${inv.amount}</td>
-                        <td className="py-3.5">
-                          {inv.status === 'paid' ? (
-                            <span className="inline-flex items-center space-x-1 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Paid</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center space-x-1 text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
-                              <Clock className="w-3.5 h-3.5" />
-                              <span>Pending</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3.5 text-right pr-2">
-                          {inv.status === 'pending' && (
-                            <button
-                              onClick={() => handlePayInvoice(inv._id)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                            >
-                              Mark Paid
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VIEW 5: SCHOOL ATTENDANCE                                                 */}
+      {/* VIEW 4: SCHOOL ATTENDANCE                                                 */}
       {/* ========================================================================= */}
       {activeTab === 'attendance' && (
         <div className="space-y-8 animate-in fade-in duration-200">
@@ -1281,99 +1058,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 3: ISSUE FEE INVOICE                                                */}
-      {/* ========================================================================= */}
-      {isFeeModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Issue Fee Invoice</h3>
-                <p className="text-xs text-slate-500">Generate tuition or activity invoice for student</p>
-              </div>
-              <button onClick={() => setIsFeeModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg">
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateFeeInvoice} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Student</label>
-                <select
-                  required
-                  value={feeStudentId}
-                  onChange={(e) => setFeeStudentId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                >
-                  <option value="">Select student...</option>
-                  {studentsList.map((s) => (
-                    <option key={s._id} value={s._id}>
-                      {s.name} ({s.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Fee Description / Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Term 1 Tuition & STEM Lab Fee"
-                  value={feeTitle}
-                  onChange={(e) => setFeeTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Amount ($ USD)</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    placeholder="350"
-                    value={feeAmount}
-                    onChange={(e) => setFeeAmount(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={feeDueDate}
-                    onChange={(e) => setFeeDueDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsFeeModalOpen(false)}
-                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={feeLoading}
-                  className="w-1/2 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition"
-                >
-                  {feeLoading ? 'Generating...' : 'Issue Invoice'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* MODAL 4: SUPERADMIN SECURITY & CREDENTIALS                                */}
+      {/* MODAL 3: SUPERADMIN SECURITY & CREDENTIALS                                */}
       {/* ========================================================================= */}
       {isSecurityOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">

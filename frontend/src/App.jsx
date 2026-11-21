@@ -60,7 +60,7 @@ export default function App() {
   const renderContent = () => {
     // 1. Super Admin & School Admin Routing
     if (role === 'school_admin' || role === 'super_admin') {
-      if (['overview', 'classes', 'invitations', 'fees', 'attendance'].includes(activeTab)) {
+      if (['overview', 'classes', 'invitations', 'attendance'].includes(activeTab)) {
         return <SchoolAdminDashboard activeTab={activeTab} onNavigate={setActiveTab} />;
       }
       if (activeTab === 'messages') {
@@ -83,7 +83,7 @@ export default function App() {
 
     // 3. Parent Routing
     if (role === 'parent') {
-      if (['overview', 'homework', 'batching', 'fees'].includes(activeTab)) {
+      if (['overview', 'homework', 'batching'].includes(activeTab)) {
         return <ParentDashboard activeTab={activeTab} onNavigate={setActiveTab} />;
       }
       if (activeTab === 'messages') {

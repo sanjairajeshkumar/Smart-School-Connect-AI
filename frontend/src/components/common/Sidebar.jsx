@@ -21,7 +21,6 @@ export const Sidebar = ({ activeTab, onSelectTab, role }) => {
         { id: 'overview', label: 'Admin Overview', icon: LayoutDashboard },
         { id: 'classes', label: 'Classes & Structure', icon: Building },
         { id: 'invitations', label: 'Invites & Directory', icon: MailPlus },
-        { id: 'fees', label: 'Fees & Invoicing', icon: CreditCard },
         { id: 'attendance', label: 'School Attendance', icon: CalendarCheck2 },
         { id: 'messages', label: 'Announcements', icon: MessageSquare },
         { id: 'ai-assistant', label: 'School AI', icon: Bot, isAi: true },
@@ -45,7 +44,6 @@ export const Sidebar = ({ activeTab, onSelectTab, role }) => {
         { id: 'overview', label: 'Child Overview', icon: LayoutDashboard },
         { id: 'homework', label: 'Homework & Grades', icon: BookOpen },
         { id: 'batching', label: 'Focus Batching', icon: Layers },
-        { id: 'fees', label: 'School Fees', icon: CreditCard },
         { id: 'messages', label: 'Teacher Chat', icon: MessageSquare },
         { id: 'ai-assistant', label: 'AI Homework Help', icon: Bot, isAi: true },
       ];
@@ -98,9 +96,9 @@ export const Sidebar = ({ activeTab, onSelectTab, role }) => {
             <span>Role Context</span>
           </p>
           <p className="leading-relaxed">
-            {role === 'school_admin' && 'Manage tenant settings, send real email invites to staff/students, track fee collections and SaaS limits.'}
+            {role === 'school_admin' && 'Manage tenant classes, send real email invites to staff/students/parents, track attendance and SaaS limits.'}
             {role === 'teacher' && 'Mark daily live attendance, publish assignments, grade student submissions, and compose parent updates.'}
-            {role === 'parent' && 'Track live attendance, review graded work, manage study batches, and pay school fee invoices.'}
+            {role === 'parent' && 'Track live attendance, review graded work, sequence focus study batches, and communicate with teachers.'}
             {role === 'student' && 'View your daily timetable, submit assignments for grading, and check real-time school announcements.'}
           </p>
         </div>
