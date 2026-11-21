@@ -15,4 +15,9 @@ export const attendanceService = {
     const res = await api.get(`/attendance/student/${studentId || 'me'}`);
     return res.data;
   },
+
+  async getSchoolOverview(date) {
+    const res = await api.get('/attendance/overview', { params: { date } });
+    return res.data;
+  },
 };

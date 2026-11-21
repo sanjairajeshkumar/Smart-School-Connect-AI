@@ -82,23 +82,28 @@ export default function App() {
   }
 
   const renderContent = () => {
-    // 1. Overview Tab (Role-Specific)
-    if (activeTab === 'overview') {
-      if (role === 'school_admin' || role === 'super_admin') {
-        return <SchoolAdminDashboard onNavigate={setActiveTab} />;
+    // 1. Super Admin & School Admin Routing
+    if (role === 'school_admin' || role === 'super_admin') {
+      if (['overview', 'classes', 'invitations', 'fees', 'attendance'].includes(activeTab)) {
+        return <SchoolAdminDashboard activeTab={activeTab} onNavigate={setActiveTab} />;
       }
+      if (activeTab === 'messages') {
+        return <MessagesPage />;
+      }
+      if (activeTab === 'ai-assistant') {
+        return <AIAssistantPage />;
+      }
+    }
+
+    // 2. Overview Tab for other roles
+    if (activeTab === 'overview') {
       if (role === 'teacher') return <TeacherDashboard onNavigate={setActiveTab} />;
       if (role === 'parent') return <ParentDashboard onNavigate={setActiveTab} />;
       if (role === 'student') return <StudentDashboard onNavigate={setActiveTab} />;
     }
 
-    // 2. Admin Specific Tabs (Classes, Invites, Fees)
-    if ((role === 'school_admin' || role === 'super_admin') && (activeTab === 'classes' || activeTab === 'invitations' || activeTab === 'fees')) {
-      return <SchoolAdminDashboard onNavigate={setActiveTab} />;
-    }
-
-    // 3. Attendance Tab (for Teacher or Admin)
-    if (activeTab === 'attendance') {
+    // 3. Attendance Tab (for Teacher)
+    if (activeTab === 'attendance' && role === 'teacher') {
       return <TeacherDashboard onNavigate={setActiveTab} />;
     }
 

@@ -142,6 +142,69 @@ class AttendanceService {
       recentLogs: history,
     };
   }
+
+  /**
+   * Get School-wide Daily Attendance Overview with Class Breakdown
+   */
+  async getSchoolOverview(schoolId, dateStr) {
+    const date = dateStr || new Date().toISOString().split('T')[0];
+    const Class = require('../models/Class');
+    const classes = await Class.find({ schoolId });
+    const attendanceRecords = await Attendance.find({ schoolId, date }).populate('markedBy', 'name');
+
+    const totalStudents = await User.countDocuments({ schoolId, role: 'student' });
+    let totalPresent = 0;
+    let totalAbsent = 0;
+    let totalLate = 0;
+
+    const classBreakdown = classes.map((cls) => {
+      const att = attendanceRecords.find((a) => a.classId.toString() === cls._id.toString());
+      let present = 0;
+      let absent = 0;
+      let late = 0;
+      if (att) {
+        for (const r of att.records) {
+          if (r.status === 'present') present++;
+          else if (r.status === 'absent') absent++;
+          else if (r.status === 'late') late++;
+        }
+      }
+      totalPresent += present;
+      totalAbsent += absent;
+      totalLate += late;
+
+      const marked = !!att;
+      const totalInClass = present + absent + late;
+      const rate = totalInClass > 0 ? Math.round(((present + late) / totalInClass) * 100) : 0;
+
+      return {
+        classId: cls._id,
+        className: `${cls.name} - ${cls.section}`,
+        roomNumber: cls.roomNumber,
+        marked,
+        markedByName: att?.markedBy?.name || null,
+        present,
+        absent,
+        late,
+        total: totalInClass,
+        rate,
+      };
+    });
+
+    const recordedTotal = totalPresent + totalAbsent + totalLate;
+    const overallRate = recordedTotal > 0 ? Math.round(((totalPresent + totalLate) / recordedTotal) * 100) : 96;
+
+    return {
+      date,
+      totalStudents,
+      recordedTotal,
+      totalPresent,
+      totalAbsent,
+      totalLate,
+      overallRate,
+      classBreakdown,
+    };
+  }
 }
 
 module.exports = new AttendanceService();

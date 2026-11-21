@@ -30,6 +30,16 @@ class AttendanceController {
       next(error);
     }
   }
+
+  async getSchoolOverview(req, res, next) {
+    try {
+      const { date } = req.query;
+      const result = await attendanceService.getSchoolOverview(req.schoolId, date);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AttendanceController();

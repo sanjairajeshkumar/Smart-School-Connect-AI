@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { schoolService } from '../services/schoolService';
 import { feeService } from '../services/feeService';
 import { authService } from '../services/authService';
+import { attendanceService } from '../services/attendanceService';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import {
   Building2,
@@ -25,17 +26,38 @@ import {
   Check,
   Shield,
   Lock,
+  Search,
+  Filter,
+  DollarSign,
+  AlertCircle,
+  FileText,
+  Calendar,
+  Layers,
+  ChevronRight,
+  Eye,
+  CheckCircle,
 } from 'lucide-react';
 
-export const SchoolAdminDashboard = ({ onNavigate }) => {
+export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => {
   const { user, addNotification } = useAuth();
+
+  // Core Data States
   const [analytics, setAnalytics] = useState(null);
   const [classes, setClasses] = useState([]);
   const [invitations, setInvitations] = useState([]);
+  const [directoryUsers, setDirectoryUsers] = useState([]);
   const [studentsList, setStudentsList] = useState([]);
+  const [feeInvoices, setFeeInvoices] = useState([]);
+  const [attendanceOverview, setAttendanceOverview] = useState(null);
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
 
-  // Invitation Modal State
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [feeStatusFilter, setFeeStatusFilter] = useState('all');
+
+  // Modals
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
@@ -45,14 +67,19 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [copiedToken, setCopiedToken] = useState(null);
 
-  // New Class Modal State
   const [isClassOpen, setIsClassOpen] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [newClassSection, setNewClassSection] = useState('A');
   const [newClassRoom, setNewClassRoom] = useState('');
   const [classLoading, setClassLoading] = useState(false);
 
-  // Superadmin Security & Credentials Modal State
+  const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
+  const [feeStudentId, setFeeStudentId] = useState('');
+  const [feeTitle, setFeeTitle] = useState('');
+  const [feeAmount, setFeeAmount] = useState('');
+  const [feeDueDate, setFeeDueDate] = useState('');
+  const [feeLoading, setFeeLoading] = useState(false);
+
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [adminName, setAdminName] = useState(user?.name || 'Super Administrator');
   const [adminEmail, setAdminEmail] = useState(user?.email || 'admin');
@@ -60,19 +87,27 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
   const [newPassword, setNewPassword] = useState('');
   const [securityLoading, setSecurityLoading] = useState(false);
 
+  // Load All Tab Data
   const loadData = async () => {
     try {
       setLoading(true);
-      const [analyticsRes, classRes, inviteRes, studentRes] = await Promise.all([
-        schoolService.getAnalytics(),
-        schoolService.getClasses(),
-        schoolService.getInvitations(),
-        authService.getLinkedStudents(),
+      const [analyticsRes, classRes, inviteRes, studentRes, usersRes, feeRes, attRes] = await Promise.all([
+        schoolService.getAnalytics().catch(() => ({ success: false })),
+        schoolService.getClasses().catch(() => ({ success: false })),
+        schoolService.getInvitations().catch(() => ({ success: false })),
+        authService.getLinkedStudents().catch(() => ({ success: false })),
+        schoolService.getUsers().catch(() => ({ success: false })),
+        feeService.getInvoices().catch(() => ({ success: false })),
+        attendanceService.getSchoolOverview(attendanceDate).catch(() => ({ success: false })),
       ]);
+
       if (analyticsRes.success) setAnalytics(analyticsRes.data);
-      if (classRes.success) setClasses(classRes.data);
-      if (inviteRes.success) setInvitations(inviteRes.data);
-      if (studentRes.success) setStudentsList(studentRes.data);
+      if (classRes.success) setClasses(classRes.data || []);
+      if (inviteRes.success) setInvitations(inviteRes.data || []);
+      if (studentRes.success) setStudentsList(studentRes.data || []);
+      if (usersRes.success) setDirectoryUsers(usersRes.data || []);
+      if (feeRes.success) setFeeInvoices(feeRes.data || []);
+      if (attRes.success) setAttendanceOverview(attRes.data);
     } catch (err) {
       console.error('Failed to load school admin dashboard:', err);
     } finally {
@@ -82,13 +117,14 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [attendanceDate]);
 
+  // Handle Send Invitation
   const handleSendInvite = async (e) => {
     e.preventDefault();
     setInviteLoading(true);
     try {
-      const res = await schoolService.sendInvitation({
+      await schoolService.sendInvitation({
         email: inviteEmail,
         name: inviteName,
         role: inviteRole,
@@ -116,6 +152,7 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
     }
   };
 
+  // Copy Direct Link
   const handleCopyInviteLink = (token) => {
     const link = `${window.location.origin}/?token=${token}`;
     navigator.clipboard.writeText(link);
@@ -128,6 +165,7 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
     setTimeout(() => setCopiedToken(null), 3000);
   };
 
+  // Create Class
   const handleCreateClass = async (e) => {
     e.preventDefault();
     setClassLoading(true);
@@ -156,6 +194,58 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
     }
   };
 
+  // Create Fee Invoice
+  const handleCreateFeeInvoice = async (e) => {
+    e.preventDefault();
+    setFeeLoading(true);
+    try {
+      await feeService.createInvoice({
+        studentId: feeStudentId,
+        title: feeTitle,
+        amount: feeAmount,
+        dueDate: feeDueDate,
+      });
+      addNotification({
+        type: 'success',
+        title: 'Invoice Issued',
+        message: `Invoice for $${feeAmount} generated.`,
+      });
+      setIsFeeModalOpen(false);
+      setFeeTitle('');
+      setFeeAmount('');
+      setFeeDueDate('');
+      loadData();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Error Issuing Invoice',
+        message: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setFeeLoading(false);
+    }
+  };
+
+  // Record Payment
+  const handlePayInvoice = async (invoiceId) => {
+    try {
+      await feeService.payInvoice(invoiceId, { paymentReference: `ADMIN-MANUAL-${Date.now().toString().slice(-6)}` });
+      addNotification({
+        type: 'success',
+        title: 'Payment Recorded',
+        message: 'Invoice has been marked as PAID.',
+      });
+      loadData();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Payment Error',
+        message: err.message,
+      });
+    }
+  };
+
+  // Revoke Invitation
   const handleRevokeInvite = async (id) => {
     try {
       await schoolService.revokeInvitation(id);
@@ -166,11 +256,12 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
     }
   };
 
+  // Update Security Credentials
   const handleUpdateSecurity = async (e) => {
     e.preventDefault();
     setSecurityLoading(true);
     try {
-      const res = await authService.updateSuperAdminProfile({
+      await authService.updateSuperAdminProfile({
         name: adminName,
         email: adminEmail,
         currentPassword: currentPassword || undefined,
@@ -201,15 +292,39 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
 
   const { financials } = analytics || {};
 
+  // Filtered Directory Users
+  const filteredDirectory = directoryUsers.filter((u) => {
+    const matchesSearch =
+      (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
+  // Filtered Invoices
+  const filteredInvoices = feeInvoices.filter((inv) => {
+    const matchesSearch =
+      (inv.studentName && inv.studentName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (inv.title && inv.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesStatus = feeStatusFilter === 'all' || inv.status === feeStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-200">
       
-      {/* School Admin Banner */}
+      {/* ========================================================================= */}
+      {/* TOP HEADER & ADMIN PROFILE CONTROLS                                       */}
+      {/* ========================================================================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
             <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-              Super Administrator Portal
+              {activeTab === 'overview' && 'Super Administrator Portal'}
+              {activeTab === 'classes' && 'Academic Classes & Structure'}
+              {activeTab === 'invitations' && 'School Directory & Member Provisioning'}
+              {activeTab === 'fees' && 'Tuition & Fee Billing Management'}
+              {activeTab === 'attendance' && 'Campus Attendance & Daily Roll Call'}
             </h2>
             <span className="px-3 py-1 bg-purple-100 text-purple-800 border border-purple-200 rounded-full text-xs font-bold uppercase tracking-wider">
               Super Admin
@@ -229,280 +344,1067 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
             <span>Admin Credentials</span>
           </button>
 
-          <button
-            onClick={() => setIsClassOpen(true)}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Class</span>
-          </button>
-
-          <button
-            onClick={() => setIsInviteOpen(true)}
-            className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
-          >
-            <MailPlus className="w-4 h-4" />
-            <span>+ Invite Member</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Overview Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500">Enrolled Students</span>
-            <GraduationCap className="w-4 h-4 text-blue-600" />
-          </div>
-          <span className="text-3xl font-extrabold text-slate-900 block">
-            {analytics?.studentsCount || 0}
-          </span>
-          <span className="text-[11px] text-slate-400 mt-1 block">Active Student Profiles</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500">Teaching Faculty</span>
-            <Users className="w-4 h-4 text-indigo-600" />
-          </div>
-          <span className="text-3xl font-extrabold text-slate-900 block">
-            {analytics?.teachersCount || 0}
-          </span>
-          <span className="text-[11px] text-slate-400 mt-1 block">Assigned Teachers</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500">Today Attendance</span>
-            <CalendarCheck2 className="w-4 h-4 text-emerald-600" />
-          </div>
-          <span className="text-3xl font-extrabold text-emerald-600 block">
-            {analytics?.attendanceRate || 96}%
-          </span>
-          <span className="text-[11px] text-slate-400 mt-1 block">Live Daily Attendance</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500">Platform License</span>
-            <ShieldCheck className="w-4 h-4 text-purple-600" />
-          </div>
-          <span className="text-3xl font-extrabold text-slate-900 block">
-            {analytics?.totalUsers || 0} / {analytics?.seatsLimit || 500}
-          </span>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-            <div
-              className="bg-blue-600 h-1.5 rounded-full"
-              style={{ width: `${analytics?.seatsUsedPercentage || 10}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Financials & Fee Collection Analytics Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-              <CreditCard className="w-5 h-5 text-emerald-600" />
-              <span>Fee Collection Analytics</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">Real-time tuition billing and receipt reconciliation</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
-              {financials?.collectionRate || 0}% Collected
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2 border-t border-slate-100">
-          <div>
-            <span className="text-xs text-slate-400 font-medium block">Total Billed (Term)</span>
-            <span className="text-2xl font-black text-slate-900 mt-1 block">
-              ${(financials?.totalBilled || 0).toLocaleString()}
-            </span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 font-medium block">Collected to Date</span>
-            <span className="text-2xl font-black text-emerald-600 mt-1 block">
-              ${(financials?.totalCollected || 0).toLocaleString()}
-            </span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 font-medium block">Outstanding Balance</span>
-            <span className="text-2xl font-black text-amber-600 mt-1 block">
-              ${(financials?.pendingAmount || 0).toLocaleString()}
-            </span>
-            <span className="text-[11px] text-slate-400">({financials?.pendingInvoices || 0} unpaid invoices)</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid: Academic Classes + Pending Invitations */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Academic Classes Section */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 flex items-center space-x-2">
-              <Building2 className="w-4 h-4 text-blue-600" />
-              <span>Academic Classes ({classes.length})</span>
-            </h3>
+          {activeTab === 'classes' && (
             <button
               onClick={() => setIsClassOpen(true)}
-              className="text-xs text-[#2563EB] hover:underline font-bold"
+              className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
             >
-              + Add Class
+              <Plus className="w-4 h-4" />
+              <span>+ Create Class</span>
             </button>
+          )}
+
+          {activeTab === 'invitations' && (
+            <button
+              onClick={() => setIsInviteOpen(true)}
+              className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
+            >
+              <MailPlus className="w-4 h-4" />
+              <span>+ Invite Member</span>
+            </button>
+          )}
+
+          {activeTab === 'fees' && (
+            <button
+              onClick={() => setIsFeeModalOpen(true)}
+              className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Issue Invoice</span>
+            </button>
+          )}
+
+          {activeTab === 'overview' && (
+            <>
+              <button
+                onClick={() => setIsClassOpen(true)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Class</span>
+              </button>
+              <button
+                onClick={() => setIsInviteOpen(true)}
+                className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
+              >
+                <MailPlus className="w-4 h-4" />
+                <span>+ Invite Member</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* VIEW 1: ADMIN OVERVIEW                                                    */}
+      {/* ========================================================================= */}
+      {activeTab === 'overview' && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+            <div 
+              onClick={() => onNavigate('invitations')} 
+              className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:border-blue-300 cursor-pointer transition"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500">Enrolled Students</span>
+                <GraduationCap className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="text-3xl font-extrabold text-slate-900 block">
+                {analytics?.studentsCount || 0}
+              </span>
+              <span className="text-[11px] text-blue-600 font-medium mt-1 flex items-center space-x-1">
+                <span>View student roster</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+
+            <div 
+              onClick={() => onNavigate('invitations')} 
+              className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:border-indigo-300 cursor-pointer transition"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500">Teaching Faculty</span>
+                <Users className="w-4 h-4 text-indigo-600" />
+              </div>
+              <span className="text-3xl font-extrabold text-slate-900 block">
+                {analytics?.teachersCount || 0}
+              </span>
+              <span className="text-[11px] text-indigo-600 font-medium mt-1 flex items-center space-x-1">
+                <span>Assigned educators</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+
+            <div 
+              onClick={() => onNavigate('attendance')} 
+              className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:border-emerald-300 cursor-pointer transition"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500">Today Attendance</span>
+                <CalendarCheck2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <span className="text-3xl font-extrabold text-emerald-600 block">
+                {analytics?.attendanceRate || 96}%
+              </span>
+              <span className="text-[11px] text-emerald-600 font-medium mt-1 flex items-center space-x-1">
+                <span>Daily roll-call details</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500">Platform License</span>
+                <ShieldCheck className="w-4 h-4 text-purple-600" />
+              </div>
+              <span className="text-3xl font-extrabold text-slate-900 block">
+                {analytics?.totalUsers || 0} / {analytics?.seatsLimit || 500}
+              </span>
+              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div
+                  className="bg-purple-600 h-1.5 rounded-full"
+                  style={{ width: `${analytics?.seatsUsedPercentage || 10}%` }}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {classes.map((cls) => (
-              <div
-                key={cls._id}
-                className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between"
+          {/* Fee Analytics Card Snapshot */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                  <CreditCard className="w-5 h-5 text-emerald-600" />
+                  <span>Fee Collection Snapshot</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Real-time tuition billing and receipt reconciliation</p>
+              </div>
+              <button
+                onClick={() => onNavigate('fees')}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-1"
               >
-                <div>
-                  <p className="font-bold text-slate-800 text-sm">
-                    {cls.name} - Section {cls.section}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {cls.roomNumber || 'Room 101'} • {cls.academicYear}
-                  </p>
+                <span>Open Invoicing Portal</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2 border-t border-slate-100">
+              <div>
+                <span className="text-xs text-slate-400 font-medium block">Total Billed (Term)</span>
+                <span className="text-2xl font-black text-slate-900 mt-1 block">
+                  ${(financials?.totalBilled || 0).toLocaleString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-400 font-medium block">Collected to Date</span>
+                <span className="text-2xl font-black text-emerald-600 mt-1 block">
+                  ${(financials?.totalCollected || 0).toLocaleString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-400 font-medium block">Outstanding Balance</span>
+                <span className="text-2xl font-black text-amber-600 mt-1 block">
+                  ${(financials?.pendingAmount || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Academic Classes & Invitations Preview */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-900 flex items-center space-x-2">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  <span>Academic Classes ({classes.length})</span>
+                </h3>
+                <button onClick={() => onNavigate('classes')} className="text-xs text-[#2563EB] hover:underline font-bold">
+                  Manage Classes →
+                </button>
+              </div>
+              <div className="space-y-3">
+                {classes.slice(0, 3).map((cls) => (
+                  <div key={cls._id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-bold text-slate-800">{cls.name} - Section {cls.section}</p>
+                      <p className="text-slate-500">{cls.roomNumber || 'Room 101'} • {cls.academicYear}</p>
+                    </div>
+                    <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                      {cls.studentCount || 0} Students
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-900 flex items-center space-x-2">
+                  <MailPlus className="w-4 h-4 text-indigo-600" />
+                  <span>Recent Invitations ({invitations.length})</span>
+                </h3>
+                <button onClick={() => onNavigate('invitations')} className="text-xs text-[#2563EB] hover:underline font-bold">
+                  View Directory →
+                </button>
+              </div>
+              <div className="space-y-3">
+                {invitations.slice(0, 3).map((inv) => (
+                  <div key={inv._id} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
+                    <div className="min-w-0 pr-2">
+                      <p className="font-bold text-slate-800 truncate">{inv.name}</p>
+                      <p className="text-slate-500 truncate">{inv.email}</p>
+                    </div>
+                    <button
+                      onClick={() => handleCopyInviteLink(inv.token)}
+                      className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold transition shrink-0 flex items-center space-x-1"
+                    >
+                      <Copy className="w-3 h-3 text-slate-500" />
+                      <span>Copy Link</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW 2: CLASSES & STRUCTURE                                               */}
+      {/* ========================================================================= */}
+      {activeTab === 'classes' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="bg-blue-50 border border-blue-200 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-blue-950">Academic Organization & Class Schedule</h3>
+              <p className="text-xs text-blue-800 mt-1 leading-relaxed">
+                Configure grade sections, assign homeroom instructors, and track live student enrollments across Oakridge Academy.
+              </p>
+            </div>
+            <div className="flex items-center space-x-4 text-xs font-semibold text-blue-900">
+              <div className="bg-white/80 backdrop-blur px-4 py-2 rounded-2xl border border-blue-200">
+                <span className="block text-xl font-black text-blue-700">{classes.length}</span>
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Active Classes</span>
+              </div>
+              <div className="bg-white/80 backdrop-blur px-4 py-2 rounded-2xl border border-blue-200">
+                <span className="block text-xl font-black text-indigo-700">{analytics?.studentsCount || 0}</span>
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Total Enrolled</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {classes.map((cls) => (
+              <div key={cls._id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:shadow-md transition space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                      {cls.academicYear}
+                    </span>
+                    <h4 className="text-lg font-black text-slate-900 mt-2">{cls.name}</h4>
+                    <p className="text-xs text-slate-500">Section {cls.section} • {cls.roomNumber || 'Room 101'}</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center font-bold text-slate-700">
+                    {cls.section}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
-                    {cls.studentCount || 0} Students
-                  </span>
+
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-slate-600 font-medium">Enrolled Students:</span>
+                  <span className="font-extrabold text-slate-900">{cls.studentCount || 0} Students</span>
                 </div>
+
+                {cls.schedule && cls.schedule.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Weekly Schedule</p>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {cls.schedule.slice(0, 4).map((sch, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs text-slate-600 py-1 border-b border-slate-100 last:border-0">
+                          <span className="font-semibold text-slate-800">{sch.day}: {sch.subject}</span>
+                          <span className="text-slate-400 text-[11px]">{sch.startTime} - {sch.endTime}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
+      )}
 
-        {/* Real-time Email Invitations & Activation Links Section */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-slate-900 flex items-center space-x-2">
-                <MailPlus className="w-4 h-4 text-indigo-600" />
-                <span>Invites & Provisioning</span>
-              </h3>
-              <p className="text-[11px] text-slate-500">Only Superadmin can grant access to Teachers, Parents & Students</p>
+      {/* ========================================================================= */}
+      {/* VIEW 3: INVITES & DIRECTORY                                               */}
+      {/* ========================================================================= */}
+      {activeTab === 'invitations' && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          
+          {/* Search & Filter Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border border-slate-200 rounded-3xl p-4 shadow-xs">
+            <div className="relative w-full sm:w-80">
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             </div>
-            <button
-              onClick={() => setIsInviteOpen(true)}
-              className="text-xs text-[#2563EB] hover:underline font-bold"
-            >
-              + Invite Member
-            </button>
-          </div>
 
-          {invitations.length === 0 ? (
-            <div className="text-center py-8 text-xs text-slate-400">
-              No pending invites. Click "+ Invite Member" to send genuine email onboarding invitations.
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[350px] overflow-y-auto">
-              {invitations.map((inv) => (
-                <div
-                  key={inv._id}
-                  className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs"
+            <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto">
+              {['all', 'teacher', 'student', 'parent'].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRoleFilter(r)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold capitalize transition ${
+                    roleFilter === r
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
                 >
-                  <div className="min-w-0 pr-3">
-                    <div className="flex items-center space-x-2">
-                      <p className="font-bold text-slate-800 truncate">{inv.name}</p>
-                      <span className="capitalize px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">
-                        {inv.role}
-                      </span>
-                    </div>
-                    <p className="text-slate-500 truncate">{inv.email}</p>
-                  </div>
-
-                  <div className="flex items-center space-x-2 shrink-0">
-                    {inv.status === 'accepted' ? (
-                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        Active Account
-                      </span>
-                    ) : inv.status === 'revoked' ? (
-                      <span className="text-slate-400">Revoked</span>
-                    ) : (
-                      <div className="flex items-center space-x-1.5">
-                        <button
-                          onClick={() => handleCopyInviteLink(inv.token)}
-                          className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold transition flex items-center space-x-1"
-                          title="Copy direct activation URL"
-                        >
-                          {copiedToken === inv.token ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span className="text-emerald-600">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3 text-slate-500" />
-                              <span>Copy Link</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleRevokeInvite(inv._id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 transition"
-                          title="Revoke invitation"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  {r === 'all' ? 'All Roles' : `${r}s`}
+                </button>
               ))}
             </div>
-          )}
-        </div>
+          </div>
 
-      </div>
-
-      {/* Modal: Superadmin Security & Credentials */}
-      {isSecurityOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-150">
+          {/* Section 1: Active Member Directory */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Shield className="w-5 h-5 text-purple-600" />
-                <h3 className="text-lg font-bold text-slate-900">Admin Security & Password</h3>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  <span>Enrolled School Directory ({filteredDirectory.length})</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Active teachers, students, and parents with verified accounts</p>
               </div>
-              <button
-                onClick={() => setIsSecurityOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
-              >
-                ✕
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold">
+                    <th className="pb-3 pl-2">Name</th>
+                    <th className="pb-3">Email Address</th>
+                    <th className="pb-3">Role</th>
+                    <th className="pb-3">Class / Linkage</th>
+                    <th className="pb-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {filteredDirectory.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="py-6 text-center text-slate-400 font-medium">
+                        No active users matching filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredDirectory.map((u) => (
+                      <tr key={u._id} className="hover:bg-slate-50 transition">
+                        <td className="py-3.5 pl-2 font-bold text-slate-900 flex items-center space-x-2.5">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center shrink-0">
+                            {u.name?.charAt(0) || 'U'}
+                          </div>
+                          <span>{u.name}</span>
+                        </td>
+                        <td className="py-3.5 text-slate-600 font-mono">{u.email}</td>
+                        <td className="py-3.5">
+                          <span className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold capitalize ${
+                            u.role === 'teacher' ? 'bg-indigo-100 text-indigo-800' :
+                            u.role === 'student' ? 'bg-blue-100 text-blue-800' :
+                            u.role === 'parent' ? 'bg-emerald-100 text-emerald-800' :
+                            'bg-purple-100 text-purple-800'
+                          }`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-slate-600">
+                          {u.grade ? `${u.grade} - ${u.section || 'A'}` : '—'}
+                        </td>
+                        <td className="py-3.5">
+                          <span className="inline-flex items-center space-x-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Active</span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 2: Pending Invitations & Activation Links */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                  <MailPlus className="w-5 h-5 text-indigo-600" />
+                  <span>Pending Onboarding Invitations ({invitations.length})</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Secure email links dispatched to invited staff, students, and parents</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold">
+                    <th className="pb-3 pl-2">Invitee</th>
+                    <th className="pb-3">Email</th>
+                    <th className="pb-3">Assigned Role</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3 text-right pr-2">Activation Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {invitations.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="py-6 text-center text-slate-400 font-medium">
+                        No invitations dispatched yet. Click "+ Invite Member" above to onboard new users.
+                      </td>
+                    </tr>
+                  ) : (
+                    invitations.map((inv) => (
+                      <tr key={inv._id} className="hover:bg-slate-50 transition">
+                        <td className="py-3.5 pl-2 font-bold text-slate-900">{inv.name}</td>
+                        <td className="py-3.5 text-slate-600 font-mono">{inv.email}</td>
+                        <td className="py-3.5">
+                          <span className="capitalize px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700">
+                            {inv.role}
+                          </span>
+                        </td>
+                        <td className="py-3.5">
+                          {inv.status === 'accepted' ? (
+                            <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              Activated
+                            </span>
+                          ) : inv.status === 'revoked' ? (
+                            <span className="text-slate-400">Revoked</span>
+                          ) : (
+                            <span className="text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              Pending Setup
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 text-right pr-2">
+                          {inv.status === 'pending' && (
+                            <div className="flex items-center justify-end space-x-2">
+                              <button
+                                onClick={() => handleCopyInviteLink(inv.token)}
+                                className="px-3 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center space-x-1"
+                              >
+                                {copiedToken === inv.token ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span className="text-emerald-600">Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3 text-slate-500" />
+                                    <span>Copy Link</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleRevokeInvite(inv._id)}
+                                className="p-1 hover:bg-rose-50 rounded text-slate-400 hover:text-rose-600 transition"
+                                title="Revoke Invitation"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW 4: FEES & INVOICING                                                  */}
+      {/* ========================================================================= */}
+      {activeTab === 'fees' && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          
+          {/* Financial KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Total Billed</span>
+              <span className="text-3xl font-extrabold text-slate-900 block">
+                ${(financials?.totalBilled || 0).toLocaleString()}
+              </span>
+              <span className="text-[11px] text-slate-400 mt-1 block">Current Term Invoices</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Collected to Date</span>
+              <span className="text-3xl font-extrabold text-emerald-600 block">
+                ${(financials?.totalCollected || 0).toLocaleString()}
+              </span>
+              <span className="text-[11px] text-emerald-600 font-medium mt-1 block">Settled Tuition Fees</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Outstanding Balance</span>
+              <span className="text-3xl font-extrabold text-amber-600 block">
+                ${(financials?.pendingAmount || 0).toLocaleString()}
+              </span>
+              <span className="text-[11px] text-amber-600 font-medium mt-1 block">
+                {financials?.pendingInvoices || 0} Unpaid Invoices
+              </span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Collection Rate</span>
+              <span className="text-3xl font-extrabold text-purple-600 block">
+                {financials?.collectionRate || 0}%
+              </span>
+              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div
+                  className="bg-purple-600 h-1.5 rounded-full"
+                  style={{ width: `${financials?.collectionRate || 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Fee Invoices Table */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                  <CreditCard className="w-5 h-5 text-emerald-600" />
+                  <span>Tuition Invoices & Fee Ledger</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Manage student invoices, payment receipts, and reconciliation</p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {['all', 'pending', 'paid'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setFeeStatusFilter(st)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition ${
+                      feeStatusFilter === st
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold">
+                    <th className="pb-3 pl-2">Student Name</th>
+                    <th className="pb-3">Fee Title / Description</th>
+                    <th className="pb-3">Due Date</th>
+                    <th className="pb-3">Amount</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3 text-right pr-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="py-8 text-center text-slate-400 font-medium">
+                        No fee invoices recorded yet. Click "+ Issue Invoice" to bill tuition or fees.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((inv) => (
+                      <tr key={inv._id} className="hover:bg-slate-50 transition">
+                        <td className="py-3.5 pl-2 font-bold text-slate-900">
+                          {inv.studentName || inv.studentId?.name || 'Enrolled Student'}
+                        </td>
+                        <td className="py-3.5 font-medium text-slate-800">{inv.title}</td>
+                        <td className="py-3.5 text-slate-500">
+                          {new Date(inv.dueDate).toLocaleDateString()}
+                        </td>
+                        <td className="py-3.5 font-black text-slate-900">${inv.amount}</td>
+                        <td className="py-3.5">
+                          {inv.status === 'paid' ? (
+                            <span className="inline-flex items-center space-x-1 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Paid</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center space-x-1 text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>Pending</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 text-right pr-2">
+                          {inv.status === 'pending' && (
+                            <button
+                              onClick={() => handlePayInvoice(inv._id)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                            >
+                              Mark Paid
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW 5: SCHOOL ATTENDANCE                                                 */}
+      {/* ========================================================================= */}
+      {activeTab === 'attendance' && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          
+          {/* Date Selector Header */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                <CalendarCheck2 className="w-5 h-5 text-emerald-600" />
+                <span>Daily Campus Attendance Overview</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">Real-time roll-call compliance and classroom attendance records</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <label className="text-xs font-semibold text-slate-600">Select Date:</label>
+              <input
+                type="date"
+                value={attendanceDate}
+                onChange={(e) => setAttendanceDate(e.target.value)}
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+              />
+            </div>
+          </div>
+
+          {/* Attendance Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Campus Attendance Rate</span>
+              <span className="text-3xl font-extrabold text-emerald-600 block">
+                {attendanceOverview?.overallRate || 96}%
+              </span>
+              <span className="text-[11px] text-slate-400 mt-1 block">Live Daily Average</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Present on Campus</span>
+              <span className="text-3xl font-extrabold text-slate-900 block">
+                {attendanceOverview?.totalPresent || 0}
+              </span>
+              <span className="text-[11px] text-emerald-600 font-medium mt-1 block">Confirmed Checked In</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Recorded Absences</span>
+              <span className="text-3xl font-extrabold text-rose-600 block">
+                {attendanceOverview?.totalAbsent || 0}
+              </span>
+              <span className="text-[11px] text-rose-500 font-medium mt-1 block">Alerts Dispatched to Parents</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Late Arrivals</span>
+              <span className="text-3xl font-extrabold text-amber-600 block">
+                {attendanceOverview?.totalLate || 0}
+              </span>
+              <span className="text-[11px] text-amber-600 font-medium mt-1 block">Tardy Check-ins</span>
+            </div>
+          </div>
+
+          {/* Class by Class Attendance Breakdown Table */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
+            <h3 className="text-lg font-bold text-slate-900">Classroom Roll-Call Breakdown</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-bold">
+                    <th className="pb-3 pl-2">Classroom</th>
+                    <th className="pb-3">Room</th>
+                    <th className="pb-3">Roll-Call Status</th>
+                    <th className="pb-3">Present</th>
+                    <th className="pb-3">Absent</th>
+                    <th className="pb-3">Late</th>
+                    <th className="pb-3">Attendance Rate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {(!attendanceOverview?.classBreakdown || attendanceOverview.classBreakdown.length === 0) ? (
+                    <tr>
+                      <td colSpan="7" className="py-6 text-center text-slate-400 font-medium">
+                        No classroom attendance records found for {attendanceDate}.
+                      </td>
+                    </tr>
+                  ) : (
+                    attendanceOverview.classBreakdown.map((c) => (
+                      <tr key={c.classId} className="hover:bg-slate-50 transition">
+                        <td className="py-3.5 pl-2 font-bold text-slate-900">{c.className}</td>
+                        <td className="py-3.5 text-slate-500">{c.roomNumber || 'Room 101'}</td>
+                        <td className="py-3.5">
+                          {c.marked ? (
+                            <span className="inline-flex items-center space-x-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Marked by {c.markedByName || 'Teacher'}</span>
+                            </span>
+                          ) : (
+                            <span className="text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              Pending Submission
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 font-bold text-emerald-600">{c.present}</td>
+                        <td className="py-3.5 font-bold text-rose-600">{c.absent}</td>
+                        <td className="py-3.5 font-bold text-amber-600">{c.late}</td>
+                        <td className="py-3.5 font-bold">
+                          <div className="flex items-center space-x-2">
+                            <span>{c.rate}%</span>
+                            <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-emerald-500 h-1.5 rounded-full"
+                                style={{ width: `${c.rate}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: INVITE MEMBER                                                    */}
+      {/* ========================================================================= */}
+      {isInviteOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Invite School Member</h3>
+                <p className="text-xs text-slate-500">Dispatches an activation link to their real email</p>
+              </div>
+              <button onClick={() => setIsInviteOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg">
+                ×
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Only you can change the Superadmin email/username and password while logged in here.
-            </p>
-
-            <form onSubmit={handleUpdateSecurity} className="space-y-4">
+            <form onSubmit={handleSendInvite} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Administrator Display Name
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
                 <input
                   type="text"
                   required
-                  value={adminName}
-                  onChange={(e) => setAdminName(e.target.value)}
+                  placeholder="e.g. Dr. Arthur Bell"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Login Username / Email
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="name@school.edu or gmail"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Assign Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm capitalize"
+                >
+                  <option value="teacher">Teacher</option>
+                  <option value="student">Student</option>
+                  <option value="parent">Parent</option>
+                </select>
+              </div>
+
+              {inviteRole !== 'parent' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Assign Academic Class</label>
+                  <select
+                    value={inviteClassId}
+                    onChange={(e) => setInviteClassId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  >
+                    <option value="">Select a class...</option>
+                    {classes.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name} - Section {c.section}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {inviteRole === 'parent' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Link to Enrolled Student</label>
+                  <select
+                    value={inviteStudentId}
+                    onChange={(e) => setInviteStudentId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  >
+                    <option value="">Select child...</option>
+                    {studentsList.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.name} ({s.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsInviteOpen(false)}
+                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviteLoading}
+                  className="w-1/2 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition"
+                >
+                  {inviteLoading ? 'Sending...' : 'Send Invitation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: CREATE ACADEMIC CLASS                                            */}
+      {/* ========================================================================= */}
+      {isClassOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Create Academic Class</h3>
+                <p className="text-xs text-slate-500">Configure grade level, section, and room number</p>
+              </div>
+              <button onClick={() => setIsClassOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg">
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateClass} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Class / Grade Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Grade 10"
+                  value={newClassName}
+                  onChange={(e) => setNewClassName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Section</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={3}
+                    placeholder="A"
+                    value={newClassSection}
+                    onChange={(e) => setNewClassSection(e.target.value.toUpperCase())}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Room Number</label>
+                  <input
+                    type="text"
+                    placeholder="Room 301"
+                    value={newClassRoom}
+                    onChange={(e) => setNewClassRoom(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsClassOpen(false)}
+                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={classLoading}
+                  className="w-1/2 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition"
+                >
+                  {classLoading ? 'Creating...' : 'Create Class'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: ISSUE FEE INVOICE                                                */}
+      {/* ========================================================================= */}
+      {isFeeModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Issue Fee Invoice</h3>
+                <p className="text-xs text-slate-500">Generate tuition or activity invoice for student</p>
+              </div>
+              <button onClick={() => setIsFeeModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg">
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateFeeInvoice} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Student</label>
+                <select
+                  required
+                  value={feeStudentId}
+                  onChange={(e) => setFeeStudentId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                >
+                  <option value="">Select student...</option>
+                  {studentsList.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.name} ({s.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Fee Description / Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Term 1 Tuition & STEM Lab Fee"
+                  value={feeTitle}
+                  onChange={(e) => setFeeTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Amount ($ USD)</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    placeholder="350"
+                    value={feeAmount}
+                    onChange={(e) => setFeeAmount(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={feeDueDate}
+                    onChange={(e) => setFeeDueDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsFeeModalOpen(false)}
+                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={feeLoading}
+                  className="w-1/2 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition"
+                >
+                  {feeLoading ? 'Generating...' : 'Issue Invoice'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: SUPERADMIN SECURITY & CREDENTIALS                                */}
+      {/* ========================================================================= */}
+      {isSecurityOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  <span>Admin Credentials</span>
+                </h3>
+                <p className="text-xs text-slate-500">Only Superadmin can update these root credentials</p>
+              </div>
+              <button onClick={() => setIsSecurityOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg">
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSecurity} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Display Name</label>
+                <input
+                  type="text"
+                  required
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Admin Username / Email</label>
                 <input
                   type="text"
                   required
@@ -533,234 +1435,33 @@ export const SchoolAdminDashboard = ({ onNavigate }) => {
                 <input
                   type="password"
                   minLength={6}
-                  placeholder="Min 6 characters"
+                  placeholder="Leave blank to keep unchanged"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3">
+              <div className="pt-2 flex items-center space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsSecurityOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={securityLoading}
-                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+                  className="w-1/2 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition"
                 >
-                  {securityLoading ? 'Saving...' : 'Update Credentials'}
+                  {securityLoading ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* Modal: Invite Staff / Student / Parent */}
-      {isInviteOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Provision New Member</h3>
-              <button
-                onClick={() => setIsInviteOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              An invitation email will be dispatched with an onboarding link for the user to set their password and access their portal.
-            </p>
-
-            <form onSubmit={handleSendInvite} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Recipient Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. David Miller"
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2563EB]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Recipient Real Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="david.miller@domain.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2563EB]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Role Assignment
-                </label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2563EB]"
-                >
-                  <option value="teacher">👩‍🏫 Teacher (Faculty)</option>
-                  <option value="parent">👨‍👧 Parent</option>
-                  <option value="student">🎒 Student</option>
-                </select>
-              </div>
-
-              {classes.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Assign to Class
-                  </label>
-                  <select
-                    value={inviteClassId}
-                    onChange={(e) => setInviteClassId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2563EB]"
-                  >
-                    <option value="">General Class Assignment</option>
-                    {classes.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name} - Section {c.section}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {inviteRole === 'parent' && studentsList.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Link to Enrolled Student
-                  </label>
-                  <select
-                    value={inviteStudentId}
-                    onChange={(e) => setInviteStudentId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700"
-                  >
-                    <option value="">Select Child...</option>
-                    {studentsList.map((s) => (
-                      <option key={s._id} value={s._id}>
-                        {s.name} ({s.grade} - {s.section})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end space-x-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsInviteOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={inviteLoading}
-                  className="px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center space-x-2"
-                >
-                  {inviteLoading ? <LoadingSpinner text="" /> : <span>Send Email Invite</span>}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Create Class */}
-      {isClassOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Create Academic Class</h3>
-              <button
-                onClick={() => setIsClassOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateClass} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Grade / Class Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Grade 9"
-                  value={newClassName}
-                  onChange={(e) => setNewClassName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Section
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. A"
-                  value={newClassSection}
-                  onChange={(e) => setNewClassSection(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm uppercase"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Room Number (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Room 304"
-                  value={newClassRoom}
-                  onChange={(e) => setNewClassRoom(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsClassOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={classLoading}
-                  className="px-5 py-2.5 bg-[#2563EB] text-white font-bold text-xs rounded-xl shadow-md"
-                >
-                  Save Class
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
