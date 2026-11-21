@@ -151,7 +151,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
 
   // Copy Direct Link
   const handleCopyInviteLink = (token) => {
-    const link = `${window.location.origin}/?token=${token}`;
+    const link = `${window.location.origin}/onboard?token=${token}`;
     navigator.clipboard.writeText(link);
     setCopiedToken(token);
     addNotification({
