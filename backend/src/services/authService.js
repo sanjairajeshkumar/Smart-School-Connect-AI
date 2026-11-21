@@ -215,7 +215,9 @@ class AuthService {
         { email: clean },
         ...(clean === 'admin' ? [{ email: 'admin' }, { role: 'super_admin' }] : []),
       ],
-    }).populate('schoolId');
+    })
+      .populate('schoolId')
+      .populate('childrenIds', 'name email grade section avatar');
 
     if (!user) {
       throw new Error('Invalid email/username or password');

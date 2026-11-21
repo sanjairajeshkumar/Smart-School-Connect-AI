@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './pages/LoginPage';
 import { OnboardingPage } from './pages/OnboardingPage';
@@ -10,41 +10,17 @@ import { StudentDashboard } from './pages/StudentDashboard';
 import { HomeworkTasksPage } from './pages/HomeworkTasksPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { AIAssistantPage } from './pages/AIAssistantPage';
-import { TaskBatchManager } from './components/tasks/TaskBatchManager';
 import { ToastContainer } from './components/common/ToastContainer';
-import { taskService } from './services/taskService';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
 
 export default function App() {
-  const { isAuthenticated, role, loading } = useAuth();
+  const { isAuthenticated, role, loading, user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
-  const [parentTasks, setParentTasks] = useState([]);
-  const [parentBatches, setParentBatches] = useState([]);
 
   // Check URL query parameters for invitation token
   const urlParams = new URLSearchParams(window.location.search);
   const inviteTokenFromUrl = urlParams.get('token');
   const [inviteToken, setInviteToken] = useState(inviteTokenFromUrl || null);
-
-  // Fetch parent batching data when batching tab is active
-  const loadBatchingData = async () => {
-    try {
-      const [tRes, bRes] = await Promise.all([
-        taskService.getTasks(),
-        taskService.getBatches(),
-      ]);
-      if (tRes.success) setParentTasks(tRes.data);
-      if (bRes.success) setParentBatches(bRes.data);
-    } catch (err) {
-      console.error('Failed to load batching data:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'batching' && role === 'parent') {
-      loadBatchingData();
-    }
-  }, [activeTab, role]);
 
   if (loading) {
     return (
@@ -105,45 +81,37 @@ export default function App() {
       }
     }
 
-    // 3. Overview Tab for other roles
-    if (activeTab === 'overview') {
-      if (role === 'parent') return <ParentDashboard onNavigate={setActiveTab} />;
-      if (role === 'student') return <StudentDashboard onNavigate={setActiveTab} />;
+    // 3. Parent Routing
+    if (role === 'parent') {
+      if (['overview', 'homework', 'batching', 'fees'].includes(activeTab)) {
+        return <ParentDashboard activeTab={activeTab} onNavigate={setActiveTab} />;
+      }
+      if (activeTab === 'messages') {
+        return <MessagesPage />;
+      }
+      if (activeTab === 'ai-assistant') {
+        return <AIAssistantPage />;
+      }
     }
 
-    // 4. Homework Tab
-    if (activeTab === 'homework') {
-      return <HomeworkTasksPage />;
+    // 4. Student Routing
+    if (role === 'student') {
+      if (activeTab === 'overview') {
+        return <StudentDashboard onNavigate={setActiveTab} />;
+      }
+      if (activeTab === 'homework') {
+        return <HomeworkTasksPage />;
+      }
+      if (activeTab === 'messages') {
+        return <MessagesPage />;
+      }
+      if (activeTab === 'ai-assistant') {
+        return <AIAssistantPage />;
+      }
     }
 
-    // 5. Messages & Announcements Tab
-    if (activeTab === 'messages') {
-      return <MessagesPage />;
-    }
-
-    // 6. AI Assistant Tab (Ask School AI)
-    if (activeTab === 'ai-assistant') {
-      return <AIAssistantPage />;
-    }
-
-    // 7. Parent Task Batching Tab
-    if (activeTab === 'batching' && role === 'parent') {
-      return (
-        <TaskBatchManager
-          tasks={parentTasks}
-          batches={parentBatches}
-          onRefresh={loadBatchingData}
-          studentName={user?.childrenIds?.[0]?.name || 'Student'}
-        />
-      );
-    }
-
-    // 8. Parent Fees Tab
-    if (activeTab === 'fees' && role === 'parent') {
-      return <ParentDashboard onNavigate={setActiveTab} />;
-    }
-
-    if (role === 'school_admin') return <SchoolAdminDashboard onNavigate={setActiveTab} />;
+    // Fallback based on role
+    if (role === 'school_admin' || role === 'super_admin') return <SchoolAdminDashboard onNavigate={setActiveTab} />;
     if (role === 'teacher') return <TeacherDashboard onNavigate={setActiveTab} />;
     if (role === 'parent') return <ParentDashboard onNavigate={setActiveTab} />;
     return <StudentDashboard onNavigate={setActiveTab} />;

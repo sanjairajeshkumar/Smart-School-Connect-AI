@@ -3,7 +3,7 @@ import { taskService } from '../../services/taskService';
 import { Layers, Plus, CheckCircle, Clock, Lock, Unlock, ArrowUpDown, Sparkles } from 'lucide-react';
 import { Badge } from '../common/Badge';
 
-export const TaskBatchManager = ({ tasks = [], batches = [], onRefresh, studentName = 'Alex' }) => {
+export const TaskBatchManager = ({ tasks = [], batches = [], onRefresh, studentName = 'Alex', studentId = null }) => {
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [batchTitle, setBatchTitle] = useState('Batch 1: High Priority Focus');
   const [instructions, setInstructions] = useState('Focus on finishing these 2 tasks first.');
@@ -31,7 +31,7 @@ export const TaskBatchManager = ({ tasks = [], batches = [], onRefresh, studentN
         taskIds: selectedTaskIds,
         isReleased,
         instructions,
-        studentId: tasks[0]?.assignedStudentId?._id || tasks[0]?.assignedStudentId,
+        studentId: studentId || tasks[0]?.assignedStudentId?._id || tasks[0]?.assignedStudentId,
       });
       setActionMessage(`Created and assigned "${batchTitle}" successfully!`);
       setSelectedTaskIds([]);
@@ -135,7 +135,9 @@ export const TaskBatchManager = ({ tasks = [], batches = [], onRefresh, studentN
               </label>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {tasks.map((task) => {
+                  if (!task) return null;
                   const isChecked = selectedTaskIds.includes(task._id);
+                  const dueFormatted = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date';
                   return (
                     <div
                       key={task._id}
@@ -154,9 +156,9 @@ export const TaskBatchManager = ({ tasks = [], batches = [], onRefresh, studentN
                           className="w-4 h-4 text-blue-600 rounded"
                         />
                         <div>
-                          <p className="font-semibold">{task.title}</p>
+                          <p className="font-semibold">{task.title || 'Assignment'}</p>
                           <p className="text-[11px] text-slate-500 font-normal">
-                            {task.subject} • Due {new Date(task.dueDate).toLocaleDateString()}
+                            {task.subject || 'General'} • Due {dueFormatted}
                           </p>
                         </div>
                       </div>
@@ -237,19 +239,24 @@ export const TaskBatchManager = ({ tasks = [], batches = [], onRefresh, studentN
                 {/* Tasks inside this batch */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">
                   {batch.taskIds && batch.taskIds.length > 0 ? (
-                    batch.taskIds.map((task) => (
-                      <div
-                        key={task._id || task}
-                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs"
-                      >
-                        <span className="font-semibold text-slate-800">
-                          {task.title || 'Assignment Task'}
-                        </span>
-                        <Badge variant={task.status || 'pending'}>
-                          {task.status === 'completed' ? 'Done' : 'Pending'}
-                        </Badge>
-                      </div>
-                    ))
+                    batch.taskIds.filter(Boolean).map((task) => {
+                      const taskId = typeof task === 'object' ? task._id : task;
+                      const taskTitle = typeof task === 'object' ? task.title : 'Assignment';
+                      const taskStatus = typeof task === 'object' ? task.status : 'pending';
+                      return (
+                        <div
+                          key={taskId}
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                        >
+                          <span className="font-semibold text-slate-800">
+                            {taskTitle}
+                          </span>
+                          <Badge variant={taskStatus}>
+                            {taskStatus === 'completed' ? 'Done' : 'Pending'}
+                          </Badge>
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-xs text-slate-400">No tasks currently assigned to this batch.</p>
                   )}

@@ -2,6 +2,8 @@ const Task = require('../models/Task');
 const TaskBatch = require('../models/TaskBatch');
 const Submission = require('../models/Submission');
 const User = require('../models/User');
+const Class = require('../models/Class');
+const School = require('../models/School');
 const socketService = require('./socketService');
 
 class TaskService {
@@ -265,12 +267,16 @@ class TaskService {
     }
 
     const schoolId = parentUser.schoolId?._id || parentUser.schoolId;
+    const effectiveStudentId = studentId || (parentUser.childrenIds?.[0]?._id || parentUser.childrenIds?.[0]);
+    if (!effectiveStudentId) {
+      throw new Error('No student linked to this parent account');
+    }
 
     const batch = await TaskBatch.create({
       schoolId,
       title,
       parentId: parentUser._id,
-      studentId,
+      studentId: effectiveStudentId,
       sequenceOrder: sequenceOrder || 1,
       taskIds,
       isReleased: isReleased !== undefined ? isReleased : true,
@@ -290,10 +296,20 @@ class TaskService {
   }
 
   async getBatches(parentOrStudentUser, studentId) {
-    const targetStudentId = parentOrStudentUser.role === 'student' ? parentOrStudentUser._id : studentId;
     const parentId = parentOrStudentUser.role === 'parent' ? parentOrStudentUser._id : parentOrStudentUser.parentId;
+    const filter = {};
+    if (parentId) filter.parentId = parentId;
 
-    return await TaskBatch.find({ parentId, studentId: targetStudentId }).populate('taskIds');
+    if (studentId) {
+      filter.studentId = studentId;
+    } else if (parentOrStudentUser.role === 'student') {
+      filter.studentId = parentOrStudentUser._id;
+    } else if (parentOrStudentUser.childrenIds && parentOrStudentUser.childrenIds.length > 0) {
+      const childIds = parentOrStudentUser.childrenIds.map((c) => (c._id ? c._id : c));
+      filter.studentId = { $in: childIds };
+    }
+
+    return await TaskBatch.find(filter).populate('taskIds');
   }
 
   async toggleBatchRelease(parentUser, batchId, isReleased) {
