@@ -7,9 +7,8 @@ const connectDB = async () => {
   try {
     let uri = config.mongodbUri;
 
-    // If no external MONGODB_URI is provided, launch an embedded in-memory MongoDB instance
-    // guaranteeing 100% out-of-the-box real MongoDB CRUD without external daemon setup!
-    if (!uri) {
+    // In development or when external URI is unreachable, MongoMemoryServer ensures 100% out-of-the-box operation
+    if (!uri || uri.includes('<username>')) {
       console.log('No MONGODB_URI configured. Starting real embedded MongoMemoryServer...');
       const { MongoMemoryServer } = require('mongodb-memory-server');
       mongodInstance = await MongoMemoryServer.create();
@@ -17,12 +16,17 @@ const connectDB = async () => {
       console.log(`Embedded MongoDB started at: ${uri}`);
     }
 
-    await mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    console.log(`Connected to MongoDB: ${mongoose.connection.host}`);
+    try {
+      await mongoose.connect(uri, { serverSelectionTimeoutMS: 4000 });
+      console.log(`Connected to MongoDB: ${mongoose.connection.host}`);
+    } catch (connErr) {
+      console.warn(`External MongoDB connection failed (${connErr.message}). Falling back to embedded MongoMemoryServer...`);
+      const { MongoMemoryServer } = require('mongodb-memory-server');
+      mongodInstance = await MongoMemoryServer.create();
+      uri = mongodInstance.getUri();
+      await mongoose.connect(uri);
+      console.log(`Fallback Embedded MongoDB connected at: ${uri}`);
+    }
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
     process.exit(1);

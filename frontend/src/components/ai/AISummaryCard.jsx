@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { aiService } from '../../services/aiService';
 import { Sparkles, FileText, Loader2, BarChart2, CheckCircle, Clock } from 'lucide-react';
 
-export const AISummaryCard = ({ studentId, studentName = 'Alex Johnson', grade = 'Grade 8' }) => {
+export const AISummaryCard = ({ studentId, studentName = 'Student', grade = 'Grade 8' }) => {
   const [digest, setDigest] = useState('');
   const [providerUsed, setProviderUsed] = useState('');
   const [loading, setLoading] = useState(false);

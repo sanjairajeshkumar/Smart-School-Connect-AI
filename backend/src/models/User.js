@@ -3,6 +3,12 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'School',
+      default: null,
+      index: true,
+    },
     name: {
       type: String,
       required: [true, 'Name is required'],
@@ -10,9 +16,11 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
+      required: [true, 'Email is required'],
+      unique: true,
       trim: true,
       lowercase: true,
-      sparse: true,
+      index: true,
     },
     password: {
       type: String,
@@ -20,8 +28,43 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['teacher', 'parent', 'student', 'staff'],
+      enum: ['super_admin', 'school_admin', 'teacher', 'parent', 'student'],
       required: [true, 'Role is required'],
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ['pending_verification', 'active', 'invited', 'suspended'],
+      default: 'pending_verification',
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationOtp: {
+      type: String,
+      default: null,
+    },
+    verificationToken: {
+      type: String,
+      default: null,
+    },
+    verificationExpires: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      default: null,
     },
     grade: {
       type: String,
@@ -31,16 +74,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'A',
     },
-    // Student 4-digit PIN for quick student login flow
-    pin: {
-      type: String,
-      trim: true,
-    },
-    // Links between parent and students
+    // Links between parent and student
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+      index: true,
     },
     childrenIds: [
       {
@@ -62,6 +101,10 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// Compound index for tenant user queries
+userSchema.index({ schoolId: 1, role: 1 });
+userSchema.index({ schoolId: 1, email: 1 });
+
 // Hash password before saving if modified
 userSchema.pre('save', async function (next) {
   if (this.isModified('password') && this.password) {
@@ -75,12 +118,6 @@ userSchema.pre('save', async function (next) {
 userSchema.methods.matchPassword = async function (enteredPassword) {
   if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
-};
-
-// Compare student PIN helper
-userSchema.methods.matchPin = function (enteredPin) {
-  if (!this.pin) return false;
-  return this.pin === enteredPin.trim();
 };
 
 module.exports = mongoose.model('User', userSchema);

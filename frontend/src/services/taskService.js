@@ -1,7 +1,7 @@
 import api from './api';
 
 export const taskService = {
-  async getTasks(params = {}) {
+  async getTasks(params) {
     const res = await api.get('/tasks', { params });
     return res.data;
   },
@@ -18,6 +18,21 @@ export const taskService = {
 
   async deleteTask(id) {
     const res = await api.delete(`/tasks/${id}`);
+    return res.data;
+  },
+
+  async submitAssignment(id, submissionData) {
+    const res = await api.post(`/tasks/${id}/submit`, submissionData);
+    return res.data;
+  },
+
+  async getSubmissions(id) {
+    const res = await api.get(`/tasks/${id}/submissions`);
+    return res.data;
+  },
+
+  async gradeSubmission(submissionId, gradeData) {
+    const res = await api.post(`/tasks/submissions/${submissionId}/grade`, gradeData);
     return res.data;
   },
 

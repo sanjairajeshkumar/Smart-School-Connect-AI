@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
-const userRepository = require('../repositories/userRepository');
+const User = require('../models/User');
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -17,7 +17,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, config.jwtSecret);
-    const user = await userRepository.findById(decoded.id);
+    const user = await User.findById(decoded.id).populate('schoolId');
 
     if (!user) {
       return res.status(401).json({
@@ -26,12 +26,20 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    if (user.status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended. Please contact your school administrator.',
+      });
+    }
+
     req.user = user;
+    req.schoolId = user.schoolId?._id || user.schoolId || null;
     next();
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid or expired session token.',
+      message: 'Invalid or expired session token. Please sign in again.',
       error: error.message,
     });
   }

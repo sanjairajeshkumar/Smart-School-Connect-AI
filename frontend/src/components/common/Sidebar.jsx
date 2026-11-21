@@ -1,20 +1,63 @@
 import React from 'react';
-import { LayoutDashboard, BookOpen, MessageSquare, Bot, Sparkles, Layers } from 'lucide-react';
+import {
+  LayoutDashboard,
+  BookOpen,
+  MessageSquare,
+  Bot,
+  Layers,
+  CalendarCheck2,
+  Users,
+  CreditCard,
+  Building,
+  MailPlus,
+  Sparkles,
+} from 'lucide-react';
 
 export const Sidebar = ({ activeTab, onSelectTab, role }) => {
   const getNavItems = () => {
-    const items = [
-      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-      { id: 'homework', label: role === 'student' ? 'My homework' : 'Homework', icon: BookOpen },
-      { id: 'messages', label: 'Messages', icon: MessageSquare },
-      { id: 'ai-assistant', label: 'AI assistant', icon: Bot, isAi: true },
-    ];
-
-    if (role === 'parent') {
-      items.splice(2, 0, { id: 'batching', label: 'Task Batching', icon: Layers });
+    // School Admin / Super Admin Nav Items
+    if (role === 'school_admin' || role === 'super_admin') {
+      return [
+        { id: 'overview', label: 'Admin Overview', icon: LayoutDashboard },
+        { id: 'classes', label: 'Classes & Structure', icon: Building },
+        { id: 'invitations', label: 'Invites & Directory', icon: MailPlus },
+        { id: 'fees', label: 'Fees & Invoicing', icon: CreditCard },
+        { id: 'attendance', label: 'School Attendance', icon: CalendarCheck2 },
+        { id: 'messages', label: 'Announcements', icon: MessageSquare },
+        { id: 'ai-assistant', label: 'School AI', icon: Bot, isAi: true },
+      ];
     }
 
-    return items;
+    // Teacher Nav Items
+    if (role === 'teacher') {
+      return [
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'attendance', label: 'Daily Attendance', icon: CalendarCheck2 },
+        { id: 'homework', label: 'Assignments & Grading', icon: BookOpen },
+        { id: 'messages', label: 'Parent Messages', icon: MessageSquare },
+        { id: 'ai-assistant', label: 'AI Message Assistant', icon: Bot, isAi: true },
+      ];
+    }
+
+    // Parent Nav Items
+    if (role === 'parent') {
+      return [
+        { id: 'overview', label: 'Child Overview', icon: LayoutDashboard },
+        { id: 'homework', label: 'Homework & Grades', icon: BookOpen },
+        { id: 'batching', label: 'Focus Batching', icon: Layers },
+        { id: 'fees', label: 'School Fees', icon: CreditCard },
+        { id: 'messages', label: 'Teacher Chat', icon: MessageSquare },
+        { id: 'ai-assistant', label: 'AI Homework Help', icon: Bot, isAi: true },
+      ];
+    }
+
+    // Student Nav Items
+    return [
+      { id: 'overview', label: 'My School Day', icon: LayoutDashboard },
+      { id: 'homework', label: 'My Assignments', icon: BookOpen },
+      { id: 'messages', label: 'Announcements', icon: MessageSquare },
+      { id: 'ai-assistant', label: 'Ask School AI', icon: Bot, isAi: true },
+    ];
   };
 
   const navItems = getNavItems();
@@ -47,7 +90,7 @@ export const Sidebar = ({ activeTab, onSelectTab, role }) => {
         })}
       </div>
 
-      {/* Role Scoped Info Card */}
+      {/* Role Context Helper */}
       <div className="mt-8 pt-6 border-t border-slate-100 hidden md:block">
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 space-y-1.5">
           <p className="font-semibold text-slate-800 flex items-center space-x-1.5">
@@ -55,9 +98,10 @@ export const Sidebar = ({ activeTab, onSelectTab, role }) => {
             <span>Role Context</span>
           </p>
           <p className="leading-relaxed">
-            {role === 'teacher' && 'Draft assignments, rewrite messages with AI approval, and view class completion rates.'}
-            {role === 'parent' && 'Review child homework, organize into sequential focus batches, and message teachers.'}
-            {role === 'student' && 'View assigned work, track study minutes, and check off completed tasks.'}
+            {role === 'school_admin' && 'Manage tenant settings, send real email invites to staff/students, track fee collections and SaaS limits.'}
+            {role === 'teacher' && 'Mark daily live attendance, publish assignments, grade student submissions, and compose parent updates.'}
+            {role === 'parent' && 'Track live attendance, review graded work, manage study batches, and pay school fee invoices.'}
+            {role === 'student' && 'View your daily timetable, submit assignments for grading, and check real-time school announcements.'}
           </p>
         </div>
       </div>

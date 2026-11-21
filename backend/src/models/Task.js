@@ -2,6 +2,18 @@ const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema(
   {
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'School',
+      required: true,
+      index: true,
+    },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      default: null,
+      index: true,
+    },
     title: {
       type: String,
       required: [true, 'Task title is required'],
@@ -19,24 +31,29 @@ const taskSchema = new mongoose.Schema(
     },
     grade: {
       type: String,
-      required: [true, 'Grade/Class is required'],
       default: 'Grade 8',
+    },
+    section: {
+      type: String,
+      default: 'A',
     },
     teacherId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     teacherName: {
       type: String,
       required: true,
       default: 'Teacher',
     },
-    // Target student (specific student) or null for entire grade
+    // Target student (specific student) or null for entire grade/class
     assignedStudentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+      index: true,
     },
     assignedParentId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -52,21 +69,30 @@ const taskSchema = new mongoose.Schema(
       enum: ['low', 'medium', 'high', 'urgent'],
       default: 'medium',
     },
+    maxScore: {
+      type: Number,
+      default: 100,
+    },
     status: {
       type: String,
       enum: ['pending', 'completed'],
       default: 'pending',
     },
+    studyMaterials: [
+      {
+        title: String,
+        url: String,
+        type: { type: String, default: 'document' },
+      },
+    ],
     completedAt: {
       type: Date,
       default: null,
     },
-    // Time spent tracked by student (in minutes)
     timeSpentMinutes: {
       type: Number,
       default: 0,
     },
-    // Student reflection / homework notes
     studentNotes: {
       type: String,
       default: '',
@@ -95,9 +121,8 @@ const taskSchema = new mongoose.Schema(
   }
 );
 
-// Index for performant querying by role
-taskSchema.index({ assignedStudentId: 1, status: 1 });
-taskSchema.index({ grade: 1, dueDate: 1 });
-taskSchema.index({ teacherId: 1 });
+taskSchema.index({ schoolId: 1, classId: 1 });
+taskSchema.index({ schoolId: 1, assignedStudentId: 1, status: 1 });
+taskSchema.index({ schoolId: 1, teacherId: 1 });
 
 module.exports = mongoose.model('Task', taskSchema);

@@ -7,8 +7,8 @@ import { Sparkles, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 export const TeacherMessageComposer = ({ onMessageSent, recentMessages = [], students = [] }) => {
   const [recipientOption, setRecipientOption] = useState('all_grade_parents');
   const [selectedRecipientId, setSelectedRecipientId] = useState('');
-  const [subject, setSubject] = useState('Homework Reminder');
-  const [messageText, setMessageText] = useState('Please remind your child to complete the math worksheet by tomorrow.');
+  const [subject, setSubject] = useState('');
+  const [messageText, setMessageText] = useState('');
   const [selectedTone, setSelectedTone] = useState('Encouraging');
   const [preferredProvider, setPreferredProvider] = useState('groq');
 

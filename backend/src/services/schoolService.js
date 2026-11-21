@@ -1,0 +1,252 @@
+const crypto = require('crypto');
+const School = require('../models/School');
+const Class = require('../models/Class');
+const User = require('../models/User');
+const Invitation = require('../models/Invitation');
+const FeeInvoice = require('../models/FeeInvoice');
+const Attendance = require('../models/Attendance');
+const emailService = require('./emailService');
+
+class SchoolService {
+  /**
+   * Get School profile
+   */
+  async getSchoolProfile(schoolId) {
+    const school = await School.findById(schoolId);
+    if (!school) throw new Error('School tenant not found');
+    return school;
+  }
+
+  /**
+   * Update School profile
+   */
+  async updateSchoolProfile(schoolId, updateData) {
+    const allowed = ['name', 'domain', 'address', 'phone', 'billingEmail', 'currentAcademicYear', 'logo', 'settings'];
+    const filtered = {};
+    for (const key of allowed) {
+      if (updateData[key] !== undefined) filtered[key] = updateData[key];
+    }
+
+    const school = await School.findByIdAndUpdate(schoolId, filtered, { new: true });
+    return school;
+  }
+
+  /**
+   * Get Tenant Dashboard Analytics & KPI Metrics
+   */
+  async getSchoolAnalytics(schoolId) {
+    const [
+      studentsCount,
+      teachersCount,
+      parentsCount,
+      classesCount,
+      school,
+      todayAttendance,
+      feeInvoices,
+    ] = await Promise.all([
+      User.countDocuments({ schoolId, role: 'student' }),
+      User.countDocuments({ schoolId, role: 'teacher' }),
+      User.countDocuments({ schoolId, role: 'parent' }),
+      Class.countDocuments({ schoolId }),
+      School.findById(schoolId),
+      Attendance.find({ schoolId, date: new Date().toISOString().split('T')[0] }),
+      FeeInvoice.find({ schoolId }),
+    ]);
+
+    // Calculate attendance percentage for today
+    let totalAttendanceRecords = 0;
+    let presentCount = 0;
+    for (const att of todayAttendance) {
+      for (const rec of att.records) {
+        totalAttendanceRecords++;
+        if (rec.status === 'present' || rec.status === 'late') {
+          presentCount++;
+        }
+      }
+    }
+    const attendanceRate = totalAttendanceRecords > 0
+      ? Math.round((presentCount / totalAttendanceRecords) * 100)
+      : 96; // Healthy baseline if not marked yet today
+
+    // Calculate fee analytics
+    let totalBilled = 0;
+    let totalCollected = 0;
+    let pendingInvoices = 0;
+    for (const inv of feeInvoices) {
+      totalBilled += inv.amount;
+      if (inv.status === 'paid') {
+        totalCollected += inv.amount;
+      } else {
+        pendingInvoices++;
+      }
+    }
+
+    return {
+      studentsCount,
+      teachersCount,
+      parentsCount,
+      classesCount,
+      totalUsers: studentsCount + teachersCount + parentsCount,
+      seatsLimit: school?.seatsLimit || 500,
+      seatsUsedPercentage: Math.min(100, Math.round(((studentsCount + teachersCount) / (school?.seatsLimit || 500)) * 100)),
+      attendanceRate,
+      subscriptionPlan: school?.subscriptionPlan || 'pro',
+      subscriptionStatus: school?.subscriptionStatus || 'active',
+      academicYear: school?.currentAcademicYear || '2026-2027',
+      financials: {
+        totalBilled,
+        totalCollected,
+        pendingAmount: totalBilled - totalCollected,
+        pendingInvoices,
+        collectionRate: totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0,
+      },
+    };
+  }
+
+  /**
+   * Create Academic Class
+   */
+  async createClass(schoolId, { name, section, academicYear, roomNumber, homeroomTeacherId }) {
+    if (!name) throw new Error('Class name is required (e.g. Grade 8)');
+    const sec = (section || 'A').toUpperCase();
+
+    const existing = await Class.findOne({ schoolId, name: name.trim(), section: sec });
+    if (existing) {
+      throw new Error(`Class ${name} - Section ${sec} already exists in this school.`);
+    }
+
+    const newClass = await Class.create({
+      schoolId,
+      name: name.trim(),
+      section: sec,
+      academicYear: academicYear || '2026-2027',
+      roomNumber: roomNumber || 'Room 101',
+      homeroomTeacherId: homeroomTeacherId || null,
+      schedule: [
+        { day: 'Monday', subject: 'Mathematics', startTime: '09:00', endTime: '10:00', teacherName: 'Lead Teacher' },
+        { day: 'Monday', subject: 'Science', startTime: '10:15', endTime: '11:15', teacherName: 'Lead Teacher' },
+        { day: 'Tuesday', subject: 'English', startTime: '09:00', endTime: '10:00', teacherName: 'Lead Teacher' },
+        { day: 'Wednesday', subject: 'Social Studies', startTime: '11:30', endTime: '12:30', teacherName: 'Lead Teacher' },
+        { day: 'Thursday', subject: 'Physical Ed', startTime: '13:30', endTime: '14:30', teacherName: 'Coach' },
+      ],
+    });
+
+    return newClass;
+  }
+
+  /**
+   * Get Classes for School with student counts
+   */
+  async getClasses(schoolId) {
+    const classes = await Class.find({ schoolId }).populate('homeroomTeacherId', 'name email');
+    
+    // Attach enrolled student counts
+    const enriched = await Promise.all(
+      classes.map(async (c) => {
+        const studentCount = await User.countDocuments({ schoolId, classId: c._id, role: 'student' });
+        return {
+          ...c.toObject(),
+          studentCount,
+        };
+      })
+    );
+
+    return enriched;
+  }
+
+  /**
+   * Send Role-Based Email Invitation (Teacher, Parent, Student, Staff)
+   */
+  async sendInvitation(inviterUser, { email, name, role, classId, studentId }) {
+    if (!email || !role || !name) {
+      throw new Error('Email, name, and role are required for invitation');
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const school = await School.findById(inviterUser.schoolId);
+    if (!school) throw new Error('School not found');
+
+    // Check if user already exists in this school
+    const existingUser = await User.findOne({ schoolId: school._id, email: cleanEmail });
+    if (existingUser && existingUser.status === 'active') {
+      throw new Error(`A user with email ${cleanEmail} is already active in ${school.name}`);
+    }
+
+    // Generate unique invitation token (7 days expiry)
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Revoke previous pending invites for this email in this school
+    await Invitation.deleteMany({ schoolId: school._id, email: cleanEmail, status: 'pending' });
+
+    const invitation = await Invitation.create({
+      schoolId: school._id,
+      email: cleanEmail,
+      name: name.trim(),
+      role,
+      classId: classId || null,
+      studentId: studentId || null,
+      token,
+      invitedBy: inviterUser._id,
+      status: 'pending',
+      expiresAt,
+    });
+
+    // Send real transactional email
+    await emailService.sendInvitationEmail({
+      to: cleanEmail,
+      name: name.trim(),
+      role,
+      schoolName: school.name,
+      token,
+      invitedByName: inviterUser.name,
+    });
+
+    return {
+      success: true,
+      message: `Invitation successfully sent to ${cleanEmail}`,
+      invitationId: invitation._id,
+      token: invitation.token,
+    };
+  }
+
+  /**
+   * Get all invitations for the school tenant
+   */
+  async getInvitations(schoolId) {
+    return await Invitation.find({ schoolId })
+      .populate('classId', 'name section')
+      .populate('studentId', 'name email grade')
+      .populate('invitedBy', 'name role')
+      .sort({ createdAt: -1 });
+  }
+
+  /**
+   * Revoke invitation
+   */
+  async revokeInvitation(schoolId, invitationId) {
+    const invite = await Invitation.findOne({ _id: invitationId, schoolId });
+    if (!invite) throw new Error('Invitation not found');
+    invite.status = 'revoked';
+    await invite.save();
+    return { success: true, message: 'Invitation revoked' };
+  }
+
+  /**
+   * Get tenant users with filters
+   */
+  async getSchoolUsers(schoolId, { role, classId }) {
+    const filter = { schoolId };
+    if (role) filter.role = role;
+    if (classId) filter.classId = classId;
+
+    return await User.find(filter)
+      .select('name email role status grade section phone createdAt classId childrenIds parentId avatar')
+      .populate('classId', 'name section')
+      .populate('childrenIds', 'name grade section')
+      .populate('parentId', 'name email phone')
+      .sort({ createdAt: -1 });
+  }
+}
+
+module.exports = new SchoolService();

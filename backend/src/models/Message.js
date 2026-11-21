@@ -2,14 +2,27 @@ const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema(
   {
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'School',
+      required: true,
+      index: true,
+    },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      default: null,
+      index: true,
+    },
     senderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     senderRole: {
       type: String,
-      enum: ['teacher', 'parent', 'staff'],
+      enum: ['super_admin', 'school_admin', 'teacher', 'parent', 'student', 'staff'],
       required: true,
     },
     senderName: {
@@ -18,13 +31,14 @@ const messageSchema = new mongoose.Schema(
     },
     recipientRole: {
       type: String,
-      enum: ['parent', 'teacher', 'all_grade_parents'],
+      enum: ['parent', 'teacher', 'all_grade_parents', 'all_school', 'all_students'],
       required: true,
     },
     recipientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null, // null if broadcast to grade
+      default: null,
+      index: true,
     },
     recipientName: {
       type: String,
@@ -37,7 +51,7 @@ const messageSchema = new mongoose.Schema(
     subject: {
       type: String,
       trim: true,
-      default: 'School Update',
+      default: 'School Announcement',
     },
     content: {
       type: String,
@@ -56,27 +70,32 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
-    // Mandatory teacher review approval flag
     teacherApproved: {
       type: Boolean,
       default: true,
+    },
+    isAnnouncement: {
+      type: Boolean,
+      default: false,
     },
     threadId: {
       type: String,
       default: '',
     },
-    isRead: {
-      type: Boolean,
-      default: false,
-    },
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,
   }
 );
 
-messageSchema.index({ senderId: 1, createdAt: -1 });
-messageSchema.index({ recipientId: 1, createdAt: -1 });
-messageSchema.index({ grade: 1, recipientRole: 1 });
+messageSchema.index({ schoolId: 1, recipientId: 1, createdAt: -1 });
+messageSchema.index({ schoolId: 1, classId: 1, createdAt: -1 });
+messageSchema.index({ schoolId: 1, isAnnouncement: 1 });
 
 module.exports = mongoose.model('Message', messageSchema);
