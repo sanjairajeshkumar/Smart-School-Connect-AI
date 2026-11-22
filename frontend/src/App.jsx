@@ -31,14 +31,21 @@ export default function App() {
   }
 
   // Handle Invitation Onboarding Flow
-  if (!isAuthenticated && inviteToken) {
+  // When an invite token is present or user navigates to /onboard, show the Onboarding Page
+  // regardless of whether another user (like Super Admin) is logged in on this browser.
+  if (inviteToken || window.location.pathname.startsWith('/onboard')) {
     return (
       <>
         <OnboardingPage
           token={inviteToken}
           onComplete={() => {
-            // Clear URL token parameter
-            window.history.replaceState({}, document.title, window.location.pathname);
+            // Clear URL token parameter and reset path to root
+            window.history.replaceState({}, document.title, '/');
+            setInviteToken(null);
+            setActiveTab('overview');
+          }}
+          onCancel={() => {
+            window.history.replaceState({}, document.title, '/');
             setInviteToken(null);
           }}
         />

@@ -3,8 +3,8 @@ import { authService } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, Lock, User, Phone, CheckCircle, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
-export const OnboardingPage = ({ token, onComplete }) => {
-  const { acceptInvite, addNotification } = useAuth();
+export const OnboardingPage = ({ token, onComplete, onCancel }) => {
+  const { user, isAuthenticated, acceptInvite, addNotification } = useAuth();
   const [inviteDetails, setInviteDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -89,12 +89,20 @@ export const OnboardingPage = ({ token, onComplete }) => {
           </div>
           <h2 className="text-xl font-bold text-slate-900">Invitation Expired or Invalid</h2>
           <p className="text-sm text-slate-500">{error}</p>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center px-6 py-3 bg-[#2563EB] text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
+          <button
+            type="button"
+            onClick={() => {
+              if (onCancel) {
+                onCancel();
+              } else {
+                window.history.replaceState({}, document.title, '/');
+                window.location.href = '/';
+              }
+            }}
+            className="inline-flex items-center justify-center px-6 py-3 bg-[#2563EB] text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition cursor-pointer"
           >
-            Return to Sign In
-          </a>
+            {isAuthenticated ? 'Return to Dashboard' : 'Return to Sign In'}
+          </button>
         </div>
       </div>
     );
@@ -118,6 +126,25 @@ export const OnboardingPage = ({ token, onComplete }) => {
             You have been provisioned as an authorized <span className="font-bold text-slate-800">{roleName}</span>
           </p>
         </div>
+
+        {/* Notice if another account is actively logged in */}
+        {isAuthenticated && user && (
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-900">
+            <div>
+              <p className="font-bold">Active Session: {user.name} ({user.role?.replace('_', ' ')})</p>
+              <p className="text-[11px] text-amber-700">Completing this activation will switch your active session to this new account.</p>
+            </div>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-amber-800 hover:bg-amber-100 transition shrink-0 ml-3 cursor-pointer"
+              >
+                Keep Current
+              </button>
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl flex items-center space-x-2">
