@@ -127,25 +127,6 @@ export const OnboardingPage = ({ token, onComplete, onCancel }) => {
           </p>
         </div>
 
-        {/* Notice if another account is actively logged in */}
-        {isAuthenticated && user && (
-          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-900">
-            <div>
-              <p className="font-bold">Active Session: {user.name} ({user.role?.replace('_', ' ')})</p>
-              <p className="text-[11px] text-amber-700">Completing this activation will switch your active session to this new account.</p>
-            </div>
-            {onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                className="px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-amber-800 hover:bg-amber-100 transition shrink-0 ml-3 cursor-pointer"
-              >
-                Keep Current
-              </button>
-            )}
-          </div>
-        )}
-
         {error && (
           <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
