@@ -29,6 +29,7 @@ export const StudentWorkSubmitModal = ({
   const [attachments, setAttachments] = useState([]);
   const [timeSpentMinutes, setTimeSpentMinutes] = useState('30');
   const [compressing, setCompressing] = useState(false);
+  const [progressText, setProgressText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [previewEnlargedIndex, setPreviewEnlargedIndex] = useState(null);
@@ -54,6 +55,7 @@ export const StudentWorkSubmitModal = ({
       setTimeSpentMinutes('30');
     }
     setError('');
+    setProgressText('');
     setPreviewEnlargedIndex(null);
   }, [task]);
 
@@ -65,8 +67,16 @@ export const StudentWorkSubmitModal = ({
 
     setError('');
     setCompressing(true);
+    setProgressText(`Preparing ${files.length} ${files.length === 1 ? 'photo' : 'photos'}...`);
     try {
-      const compressedImages = await compressMultipleImages(files, 1600, 0.82);
+      const compressedImages = await compressMultipleImages(
+        files,
+        1200,
+        0.75,
+        (current, total) => {
+          setProgressText(`Optimizing page ${current} of ${total}...`);
+        }
+      );
       if (compressedImages.length === 0) {
         setError('No valid image files found.');
       } else {
@@ -76,6 +86,7 @@ export const StudentWorkSubmitModal = ({
       setError(err.message || 'Failed to process selected photos.');
     } finally {
       setCompressing(false);
+      setProgressText('');
       // Reset input value so same files can be re-selected if needed
       e.target.value = '';
     }
@@ -253,7 +264,7 @@ export const StudentWorkSubmitModal = ({
                     {compressing && (
                       <span className="text-[11px] text-blue-600 font-semibold flex items-center space-x-1">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Processing...</span>
+                        <span>{progressText || 'Optimizing photo...'}</span>
                       </span>
                     )}
                   </div>
@@ -280,7 +291,9 @@ export const StudentWorkSubmitModal = ({
                 {compressing ? (
                   <div className="flex flex-col items-center space-y-2">
                     <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                    <span className="text-xs font-semibold text-slate-600">Processing photo(s)...</span>
+                    <span className="text-xs font-semibold text-slate-700">
+                      {progressText || 'Optimizing photo(s)...'}
+                    </span>
                   </div>
                 ) : (
                   <>
