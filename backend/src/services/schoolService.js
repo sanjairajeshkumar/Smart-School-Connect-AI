@@ -122,16 +122,42 @@ class SchoolService {
       academicYear: academicYear || '2026-2027',
       roomNumber: roomNumber || 'Room 101',
       homeroomTeacherId: homeroomTeacherId || null,
-      schedule: [
-        { day: 'Monday', subject: 'Mathematics', startTime: '09:00', endTime: '10:00', teacherName: 'Lead Teacher' },
-        { day: 'Monday', subject: 'Science', startTime: '10:15', endTime: '11:15', teacherName: 'Lead Teacher' },
-        { day: 'Tuesday', subject: 'English', startTime: '09:00', endTime: '10:00', teacherName: 'Lead Teacher' },
-        { day: 'Wednesday', subject: 'Social Studies', startTime: '11:30', endTime: '12:30', teacherName: 'Lead Teacher' },
-        { day: 'Thursday', subject: 'Physical Ed', startTime: '13:30', endTime: '14:30', teacherName: 'Coach' },
-      ],
+      schedule: Array.isArray(schedule) ? schedule : [],
     });
 
     return newClass;
+  }
+
+  /**
+   * Add a custom timetable period to a class schedule
+   */
+  async addClassScheduleItem(schoolId, classId, { day, subject, startTime, endTime, teacherName }) {
+    const cls = await Class.findOne({ _id: classId, schoolId });
+    if (!cls) throw new Error('Class not found');
+    if (!day || !subject) throw new Error('Day and Subject are required for schedule');
+
+    cls.schedule.push({
+      day,
+      subject: subject.trim(),
+      startTime: startTime || '09:00',
+      endTime: endTime || '10:00',
+      teacherName: teacherName?.trim() || 'Lead Faculty',
+    });
+    await cls.save();
+    return cls;
+  }
+
+  /**
+   * Remove a timetable period from a class schedule
+   */
+  async removeClassScheduleItem(schoolId, classId, scheduleIndex) {
+    const cls = await Class.findOne({ _id: classId, schoolId });
+    if (!cls) throw new Error('Class not found');
+    if (cls.schedule && scheduleIndex >= 0 && scheduleIndex < cls.schedule.length) {
+      cls.schedule.splice(scheduleIndex, 1);
+      await cls.save();
+    }
+    return cls;
   }
 
   /**

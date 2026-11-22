@@ -31,6 +31,16 @@ export const schoolService = {
     return res.data;
   },
 
+  async addScheduleItem(classId, data) {
+    const res = await api.post(`/school/classes/${classId}/schedule`, data);
+    return res.data;
+  },
+
+  async removeScheduleItem(classId, index) {
+    const res = await api.delete(`/school/classes/${classId}/schedule/${index}`);
+    return res.data;
+  },
+
   async getUsers(params) {
     const res = await api.get('/school/users', { params });
     return res.data;

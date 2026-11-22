@@ -79,6 +79,15 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
   const [classDetailData, setClassDetailData] = useState(null);
   const [loadingClassDetail, setLoadingClassDetail] = useState(false);
 
+  // Custom Schedule Period Form State
+  const [isAddingPeriod, setIsAddingPeriod] = useState(false);
+  const [periodDay, setPeriodDay] = useState('Monday');
+  const [periodSubject, setPeriodSubject] = useState('');
+  const [periodStart, setPeriodStart] = useState('09:00');
+  const [periodEnd, setPeriodEnd] = useState('10:00');
+  const [periodTeacher, setPeriodTeacher] = useState('');
+  const [periodLoading, setPeriodLoading] = useState(false);
+
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [adminName, setAdminName] = useState(user?.name || 'Super Administrator');
   const [adminEmail, setAdminEmail] = useState(user?.email || 'admin');
@@ -140,6 +149,9 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       setInviteName('');
       setInviteStudentId('');
       loadData();
+      if (selectedClassForModal) {
+        handleOpenClassDetail(selectedClassForModal);
+      }
     } catch (err) {
       addNotification({
         type: 'error',
@@ -219,6 +231,75 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       });
     } finally {
       setLoadingClassDetail(false);
+    }
+  };
+
+  // Add custom schedule period to class
+  const handleAddScheduleItem = async (e) => {
+    e.preventDefault();
+    if (!selectedClassForModal?._id || !periodSubject.trim()) return;
+
+    setPeriodLoading(true);
+    try {
+      const res = await schoolService.addScheduleItem(selectedClassForModal._id, {
+        day: periodDay,
+        subject: periodSubject.trim(),
+        startTime: periodStart || '09:00',
+        endTime: periodEnd || '10:00',
+        teacherName: periodTeacher.trim() || undefined,
+      });
+
+      if (res.success && res.data) {
+        addNotification({
+          type: 'success',
+          title: 'Period Added',
+          message: `${periodSubject} period scheduled on ${periodDay} (${periodStart} - ${periodEnd}).`,
+        });
+
+        setSelectedClassForModal(res.data);
+        setClasses((prev) =>
+          prev.map((c) => (c._id === res.data._id ? res.data : c))
+        );
+
+        setPeriodSubject('');
+        setPeriodTeacher('');
+        setIsAddingPeriod(false);
+      }
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to Add Period',
+        message: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setPeriodLoading(false);
+    }
+  };
+
+  // Remove schedule period from class
+  const handleRemoveScheduleItem = async (index) => {
+    if (!selectedClassForModal?._id) return;
+
+    try {
+      const res = await schoolService.removeScheduleItem(selectedClassForModal._id, index);
+      if (res.success && res.data) {
+        addNotification({
+          type: 'info',
+          title: 'Period Removed',
+          message: 'The class schedule item has been removed.',
+        });
+
+        setSelectedClassForModal(res.data);
+        setClasses((prev) =>
+          prev.map((c) => (c._id === res.data._id ? res.data : c))
+        );
+      }
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to Remove Period',
+        message: err.response?.data?.message || err.message,
+      });
     }
   };
 
@@ -947,7 +1028,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       {/* MODAL 1: INVITE MEMBER                                                    */}
       {/* ========================================================================= */}
       {isInviteOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-[100] animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between">
               <div>
@@ -1284,7 +1365,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                     <div>
                       <span className="text-xs text-slate-500 font-medium block">Teaching Faculty</span>
                       <span className="text-xl font-extrabold text-slate-900">
-                        {classDetailData?.teachers?.length || 1} Assigned
+                        {classDetailData?.teachers?.length || 0} Assigned
                       </span>
                     </div>
                   </div>
@@ -1296,7 +1377,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                     <div>
                       <span className="text-xs text-slate-500 font-medium block">Weekly Periods</span>
                       <span className="text-xl font-extrabold text-slate-900">
-                        {selectedClassForModal.schedule?.length || 6} Scheduled
+                        {selectedClassForModal.schedule?.length || 0} Scheduled
                       </span>
                     </div>
                   </div>
@@ -1439,28 +1520,177 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                   </div>
                 </div>
 
-                {/* Section 3: Full Weekly Timetable Schedule */}
-                {selectedClassForModal.schedule && selectedClassForModal.schedule.length > 0 && (
-                  <div className="space-y-3 pt-2">
-                    <h4 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-blue-600" />
-                      <span>Weekly Academic Schedule & Timetable</span>
-                    </h4>
+                {/* Section 3: Weekly Academic Schedule & Timetable (Custom Created) */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                        <Clock className="w-4 h-4 text-blue-600" />
+                        <span>Weekly Academic Schedule & Timetable</span>
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Create custom periods for each day of the week. No default mock schedules.
+                      </p>
+                    </div>
 
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingPeriod((prev) => !prev)}
+                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition border border-blue-200 self-start sm:self-auto cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{isAddingPeriod ? 'Cancel' : '+ Add Period'}</span>
+                    </button>
+                  </div>
+
+                  {/* Inline Form to Add Period */}
+                  {isAddingPeriod && (
+                    <form
+                      onSubmit={handleAddScheduleItem}
+                      className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3 animate-in fade-in"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                          Schedule New Period
+                        </h5>
+                        <span className="text-[11px] text-blue-600">Assign day, time and subject</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">Day</label>
+                          <select
+                            value={periodDay}
+                            onChange={(e) => setPeriodDay(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d) => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">Subject</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Mathematics"
+                            value={periodSubject}
+                            onChange={(e) => setPeriodSubject(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">Start Time</label>
+                          <input
+                            type="time"
+                            required
+                            value={periodStart}
+                            onChange={(e) => setPeriodStart(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">End Time</label>
+                          <input
+                            type="time"
+                            required
+                            value={periodEnd}
+                            onChange={(e) => setPeriodEnd(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">Teacher (Optional)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Lead Teacher"
+                            value={periodTeacher}
+                            onChange={(e) => setPeriodTeacher(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end space-x-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingPeriod(false);
+                            setPeriodSubject('');
+                            setPeriodTeacher('');
+                          }}
+                          className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={periodLoading || !periodSubject.trim()}
+                          className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center space-x-1 cursor-pointer"
+                        >
+                          {periodLoading ? (
+                            <span>Adding...</span>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Save Period</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Schedule List or Empty State */}
+                  {(!selectedClassForModal.schedule || selectedClassForModal.schedule.length === 0) ? (
+                    <div className="p-8 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center space-y-2">
+                      <Clock className="w-8 h-8 text-slate-300 mx-auto" />
+                      <p className="text-xs font-bold text-slate-700">No Timetable Periods Configured</p>
+                      <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                        This class currently has no schedule periods. Click <strong>+ Add Period</strong> above to create subjects and times.
+                      </p>
+                    </div>
+                  ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {selectedClassForModal.schedule.map((sch, idx) => (
-                        <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1 text-xs">
+                        <div
+                          key={idx}
+                          className="p-3.5 bg-slate-50 hover:bg-white border border-slate-200 hover:border-blue-200 hover:shadow-xs rounded-2xl space-y-2 text-xs transition group relative"
+                        >
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-blue-600 text-[11px]">{sch.day}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{sch.startTime} - {sch.endTime}</span>
+                            <span className="font-bold text-blue-600 text-[11px] bg-blue-50 px-2 py-0.5 rounded-md">
+                              {sch.day}
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {sch.startTime} - {sch.endTime}
+                              </span>
+                              <button
+                                type="button"
+                                title="Remove Period"
+                                onClick={() => handleRemoveScheduleItem(idx)}
+                                className="text-slate-400 hover:text-red-600 opacity-60 group-hover:opacity-100 transition p-1 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
-                          <p className="font-bold text-slate-800 text-sm">{sch.subject}</p>
-                          <p className="text-[11px] text-slate-500">{sch.teacherName || 'Lead Faculty'}</p>
+                          <div>
+                            <p className="font-bold text-slate-800 text-sm">{sch.subject}</p>
+                            <p className="text-[11px] text-slate-500">{sch.teacherName || 'Lead Faculty'}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
 

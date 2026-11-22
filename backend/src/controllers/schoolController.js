@@ -55,6 +55,24 @@ class SchoolController {
     }
   }
 
+  async addScheduleItem(req, res, next) {
+    try {
+      const cls = await schoolService.addClassScheduleItem(req.schoolId, req.params.id, req.body);
+      res.status(200).json({ success: true, data: cls });
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
+  async removeScheduleItem(req, res, next) {
+    try {
+      const cls = await schoolService.removeClassScheduleItem(req.schoolId, req.params.id, parseInt(req.params.index, 10));
+      res.status(200).json({ success: true, data: cls });
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
   async sendInvitation(req, res, next) {
     try {
       const result = await schoolService.sendInvitation(req.user, req.body);

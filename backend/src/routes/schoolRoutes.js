@@ -17,6 +17,8 @@ router.get('/analytics', permitRoles('school_admin', 'super_admin'), schoolContr
 router.get('/classes', schoolController.getClasses);
 router.get('/classes/:id', schoolController.getClassDetails);
 router.post('/classes', permitRoles('school_admin', 'super_admin'), schoolController.createClass);
+router.post('/classes/:id/schedule', permitRoles('school_admin', 'super_admin'), schoolController.addScheduleItem);
+router.delete('/classes/:id/schedule/:index', permitRoles('school_admin', 'super_admin'), schoolController.removeScheduleItem);
 
 // Users Directory
 router.get('/users', permitRoles('school_admin', 'teacher', 'super_admin'), schoolController.getUsers);
