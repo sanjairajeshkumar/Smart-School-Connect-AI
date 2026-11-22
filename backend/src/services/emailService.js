@@ -284,6 +284,59 @@ class EmailService {
       text: `Dear ${parentName},\n\nYour child ${studentName} was marked ${status} on ${date}.\n${remarks ? `Remarks: ${remarks}\n` : ''}`,
     });
   }
+
+  /**
+   * 5. Send Homework Grade & Review Email (to Parent and Student)
+   */
+  async sendGradeReviewEmail({ to, recipientName, studentName, taskTitle, subject, score, maxScore, feedback, teacherName, attachmentUrl }) {
+    const isImage = attachmentUrl && (attachmentUrl.startsWith('data:image') || attachmentUrl.startsWith('http'));
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="color: #2563eb; font-size: 26px; font-weight: 800; margin: 0;">school<span style="color: #0f172a;">connect</span></h1>
+          <p style="color: #64748b; font-size: 14px; margin-top: 6px;">Homework Grade & Teacher Review Report</p>
+        </div>
+        <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+          <h2 style="color: #0f172a; font-size: 18px; font-weight: 700; margin-top: 0;">Assignment Review: ${taskTitle}</h2>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">Dear <strong>${recipientName || 'Parent'}</strong>,</p>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+            The homework submission for <strong>${studentName}</strong> in <strong>${subject || 'Curriculum'}</strong> has been reviewed and graded by <strong>${teacherName || 'Class Teacher'}</strong>.
+          </p>
+
+          <div style="padding: 18px; background-color: #ecfdf5; border-left: 4px solid #10b981; border-radius: 8px; margin: 16px 0;">
+            <p style="margin: 0; color: #065f46; font-size: 13px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.05em;">Grade Awarded</p>
+            <p style="margin: 4px 0 0; color: #047857; font-size: 28px; font-weight: 800;">
+              ${score} <span style="font-size: 16px; font-weight: normal; color: #065f46;">/ ${maxScore || 100} points</span>
+            </p>
+            ${feedback ? `
+              <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #a7f3d0;">
+                <p style="margin: 0; color: #065f46; font-size: 12px; font-weight: bold;">Teacher Feedback / Review Remarks:</p>
+                <p style="margin: 4px 0 0; color: #064e3b; font-size: 14px; font-style: italic;">"${feedback}"</p>
+              </div>
+            ` : ''}
+          </div>
+
+          ${isImage ? `
+            <div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; text-align: center;">
+              <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px; font-weight: 600;">Student's Submitted Work Photo:</p>
+              <img src="${attachmentUrl}" alt="Student Homework Submission" style="max-width: 100%; max-height: 350px; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: contain;" />
+            </div>
+          ` : ''}
+
+          <p style="color: #64748b; font-size: 13px; margin-top: 16px;">
+            You can view complete submission details, study minutes, and historical performance inside the SchoolConnect portal.
+          </p>
+        </div>
+      </div>
+    `;
+
+    return await this.sendMail({
+      to,
+      subject: `Grade & Review: ${studentName} scored ${score}/${maxScore} on ${taskTitle}`,
+      html,
+      text: `Hello ${recipientName},\n\n${studentName}'s assignment "${taskTitle}" (${subject}) has been graded by ${teacherName}.\nScore: ${score}/${maxScore}\nTeacher Feedback: ${feedback || 'None'}\n`,
+    });
+  }
 }
 
 module.exports = new EmailService();

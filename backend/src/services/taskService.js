@@ -4,7 +4,9 @@ const Submission = require('../models/Submission');
 const User = require('../models/User');
 const Class = require('../models/Class');
 const School = require('../models/School');
+const Message = require('../models/Message');
 const socketService = require('./socketService');
+const emailService = require('./emailService');
 
 class TaskService {
   async createTask(teacherUser, data) {
@@ -98,7 +100,18 @@ class TaskService {
         ],
         ...filter,
       };
-      return await Task.find(query).sort({ dueDate: 1 }).populate('classId', 'name section');
+      const tasks = await Task.find(query).sort({ dueDate: 1 }).populate('classId', 'name section');
+
+      const taskIds = tasks.map((t) => t._id);
+      const submissions = await Submission.find({ taskId: { $in: taskIds }, studentId: { $in: childIds } });
+      const submissionMap = new Map();
+      submissions.forEach((s) => submissionMap.set(s.taskId.toString(), s));
+
+      return tasks.map((t) => {
+        const obj = t.toObject();
+        obj.submission = submissionMap.get(t._id.toString()) || null;
+        return obj;
+      });
     }
 
     if (user.role === 'student') {
@@ -251,13 +264,76 @@ class TaskService {
       maxScore: submission.maxScore,
       feedback: submission.feedback,
       gradedByName: teacherUser.name,
+      attachmentUrl: submission.attachmentUrl || null,
     };
 
     socketService.emitToUser(submission.studentId, 'grade:updated', gradeData);
 
-    const student = await User.findById(submission.studentId);
+    const student = await User.findById(submission.studentId).populate('parentId');
+    
+    // Notify Parent if linked
     if (student?.parentId) {
-      socketService.emitToUser(student.parentId, 'grade:updated', gradeData);
+      const parentUser = student.parentId;
+      socketService.emitToUser(parentUser._id, 'grade:updated', gradeData);
+
+      // Create in-app message to parent
+      try {
+        await Message.create({
+          schoolId: submission.schoolId,
+          senderId: teacherUser._id,
+          senderName: teacherUser.name,
+          senderRole: 'teacher',
+          recipientId: parentUser._id,
+          recipientRole: 'parent',
+          title: `Grade & Review: ${student.name} scored ${submission.score}/${submission.maxScore} on ${submission.taskId.title}`,
+          content: `Hello ${parentUser.name},\n\nYour child ${student.name}'s homework for "${submission.taskId.title}" (${submission.taskId.subject}) has been evaluated.\n\nScore: ${submission.score} / ${submission.maxScore}\nTeacher Review: "${submission.feedback || 'Good work!'}"`,
+          attachments: submission.attachmentUrl ? [{ name: 'homework_work.jpg', url: submission.attachmentUrl }] : [],
+          targetGrade: student.grade || '9',
+          isBroadcast: false,
+        });
+      } catch (msgErr) {
+        console.warn('Failed to create in-app message for parent:', msgErr.message);
+      }
+
+      // Send Email to Parent
+      if (parentUser.email) {
+        try {
+          await emailService.sendGradeReviewEmail({
+            to: parentUser.email,
+            recipientName: parentUser.name,
+            studentName: student.name,
+            taskTitle: submission.taskId.title,
+            subject: submission.taskId.subject,
+            score: submission.score,
+            maxScore: submission.maxScore,
+            feedback: submission.feedback,
+            teacherName: teacherUser.name,
+            attachmentUrl: submission.attachmentUrl,
+          });
+        } catch (emailErr) {
+          console.warn('Failed to send grade email to parent:', emailErr.message);
+        }
+      }
+    }
+
+    // Send Email to Student if they have an email address
+    if (student?.email) {
+      try {
+        await emailService.sendGradeReviewEmail({
+          to: student.email,
+          recipientName: student.name,
+          studentName: student.name,
+          taskTitle: submission.taskId.title,
+          subject: submission.taskId.subject,
+          score: submission.score,
+          maxScore: submission.maxScore,
+          feedback: submission.feedback,
+          teacherName: teacherUser.name,
+          attachmentUrl: submission.attachmentUrl,
+        });
+      } catch (err) {
+        console.warn('Failed to email student grade:', err.message);
+      }
     }
 
     return submission;

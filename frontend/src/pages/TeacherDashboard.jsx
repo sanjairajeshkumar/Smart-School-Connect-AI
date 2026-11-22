@@ -32,6 +32,8 @@ import {
   Calendar,
   Layers,
   GraduationCap,
+  Camera,
+  Eye,
 } from 'lucide-react';
 
 export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
@@ -63,6 +65,7 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
   const [gradeScore, setGradeScore] = useState('');
   const [gradeFeedback, setGradeFeedback] = useState('');
   const [gradeSaving, setGradeSaving] = useState(false);
+  const [enlargedPhotoUrl, setEnlargedPhotoUrl] = useState(null);
 
   const loadData = async () => {
     try {
@@ -784,8 +787,49 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
                     </div>
 
                     <div className="p-3 bg-white border border-slate-100 rounded-xl text-xs text-slate-700 whitespace-pre-wrap">
-                      {sub.content || 'No text submitted.'}
+                      {sub.content ? (
+                        <div>
+                          <span className="font-semibold text-slate-400 uppercase text-[10px] block mb-0.5">Student Notes</span>
+                          {sub.content}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic">No written solution notes provided.</span>
+                      )}
                     </div>
+
+                    {/* Student's Uploaded Work Photo */}
+                    {sub.attachmentUrl && (
+                      <div className="p-3 bg-white border border-slate-200 rounded-2xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                            <Camera className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Student's Uploaded Work Photo</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEnlargedPhotoUrl(sub.attachmentUrl)}
+                            className="text-[11px] font-bold text-blue-600 hover:underline flex items-center space-x-1 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Enlarge Photo</span>
+                          </button>
+                        </div>
+                        <div
+                          onClick={() => setEnlargedPhotoUrl(sub.attachmentUrl)}
+                          className="relative group rounded-xl overflow-hidden border border-slate-100 max-h-64 bg-slate-50 flex items-center justify-center cursor-pointer p-2"
+                        >
+                          <img
+                            src={sub.attachmentUrl}
+                            alt="Student work submission"
+                            className="max-h-60 w-auto object-contain rounded-lg transition group-hover:scale-102"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold space-x-1 rounded-xl">
+                            <Eye className="w-4 h-4" />
+                            <span>Click to inspect full resolution</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {selectedSubmission?._id === sub._id ? (
                       <form onSubmit={handleGradeSubmit} className="space-y-3 pt-2 border-t border-slate-200">
@@ -807,13 +851,13 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
-                              Feedback to Student
+                              Review & Feedback (Dispatched to Student & Parent)
                             </label>
                             <input
                               type="text"
                               value={gradeFeedback}
                               onChange={(e) => setGradeFeedback(e.target.value)}
-                              placeholder="e.g. Excellent analysis!"
+                              placeholder="e.g. Excellent solution! Well explained."
                               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs"
                             />
                           </div>
@@ -823,16 +867,16 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
                           <button
                             type="button"
                             onClick={() => setSelectedSubmission(null)}
-                            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
+                            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
                           >
                             Cancel
                           </button>
                           <button
                             type="submit"
                             disabled={gradeSaving}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center space-x-1"
                           >
-                            {gradeSaving ? 'Broadcasting...' : 'Save & Broadcast Grade'}
+                            <span>{gradeSaving ? 'Broadcasting & Emailing...' : 'Save & Send Review'}</span>
                           </button>
                         </div>
                       </form>
@@ -843,7 +887,7 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
                           setGradeScore(sub.score !== undefined && sub.score !== null ? sub.score : '');
                           setGradeFeedback(sub.feedback || '');
                         }}
-                        className="text-xs text-blue-600 font-bold hover:underline"
+                        className="text-xs text-blue-600 font-bold hover:underline cursor-pointer"
                       >
                         {sub.score !== undefined && sub.score !== null ? 'Edit Grade & Feedback' : 'Enter Grade & Feedback'}
                       </button>
@@ -866,6 +910,38 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
           currentClass={currentClass}
           students={students}
         />
+      )}
+
+      {/* Enlarged Photo Lightbox Modal for Teacher */}
+      {enlargedPhotoUrl && (
+        <div
+          className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setEnlargedPhotoUrl(null)}
+        >
+          <div
+            className="relative max-w-5xl max-h-[92vh] bg-white rounded-3xl p-5 shadow-2xl overflow-hidden space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-2">
+                <Camera className="w-4 h-4 text-blue-600" />
+                <span>Student Work Photo (High Resolution)</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setEnlargedPhotoUrl(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <img
+              src={enlargedPhotoUrl}
+              alt="Full size student work"
+              className="max-h-[78vh] w-auto mx-auto object-contain rounded-xl"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
