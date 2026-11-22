@@ -447,9 +447,29 @@ class AuthService {
       user.isEmailVerified = true;
       if (name) user.name = name.trim();
       if (phone) user.phone = phone.trim();
-      if (invite.classId) user.classId = invite.classId;
+      if (invite.classId) {
+        user.classId = invite.classId;
+        const assignedClass = await Class.findById(invite.classId);
+        if (assignedClass) {
+          user.grade = assignedClass.name;
+          user.section = assignedClass.section;
+          if (invite.role === 'teacher' && !assignedClass.homeroomTeacherId) {
+            assignedClass.homeroomTeacherId = user._id;
+            await assignedClass.save();
+          }
+        }
+      }
       await user.save();
     } else {
+      let userGrade = '9';
+      let userSection = 'B';
+      if (invite.classId) {
+        const assignedClass = await Class.findById(invite.classId);
+        if (assignedClass) {
+          userGrade = assignedClass.name;
+          userSection = assignedClass.section;
+        }
+      }
       user = await User.create({
         schoolId: invite.schoolId._id,
         name: name ? name.trim() : invite.name,
@@ -460,7 +480,12 @@ class AuthService {
         isEmailVerified: true,
         phone: phone ? phone.trim() : '',
         classId: invite.classId || null,
+        grade: userGrade,
+        section: userSection,
       });
+      if (invite.role === 'teacher' && invite.classId) {
+        await Class.findByIdAndUpdate(invite.classId, { homeroomTeacherId: user._id });
+      }
     }
 
     if (invite.role === 'parent' && invite.studentId) {

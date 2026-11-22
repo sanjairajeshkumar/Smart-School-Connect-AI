@@ -14,14 +14,26 @@ class TaskService {
 
     const schoolId = teacherUser.schoolId?._id || teacherUser.schoolId;
 
+    let taskClassId = data.classId || teacherUser.classId?._id || teacherUser.classId || null;
+    let taskGrade = data.grade || teacherUser.grade || '9';
+    let taskSection = data.section || teacherUser.section || 'B';
+
+    if (taskClassId) {
+      const cls = await Class.findById(taskClassId);
+      if (cls) {
+        taskGrade = cls.name;
+        taskSection = cls.section;
+      }
+    }
+
     const taskData = {
       schoolId,
-      classId: data.classId || teacherUser.classId || null,
+      classId: taskClassId,
       title: data.title,
       subject: data.subject,
       description: data.description || '',
-      grade: data.grade || teacherUser.grade || 'Grade 8',
-      section: data.section || teacherUser.section || 'A',
+      grade: taskGrade,
+      section: taskSection,
       teacherId: teacherUser._id,
       teacherName: teacherUser.name,
       dueDate: new Date(data.dueDate),

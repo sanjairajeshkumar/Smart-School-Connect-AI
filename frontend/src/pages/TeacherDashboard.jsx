@@ -43,6 +43,8 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
+  const currentClass = classes.find((c) => c._id === selectedClassId) || user?.classId;
+
   // Homework Filter State
   const [taskFilter, setTaskFilter] = useState('all');
   const [taskSearch, setTaskSearch] = useState('');
@@ -264,7 +266,7 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
             </span>
           </div>
           <p className="text-sm text-slate-500 mt-1 font-medium">
-            Tenant: {user?.schoolId?.name || 'Hogwarts'} • Homeroom: {user?.grade || 'Grade 8'} - Section {user?.section || 'A'}
+            Tenant: {user?.schoolId?.name || 'Hogwarts'} • Homeroom: {currentClass?.name ? `Class ${currentClass.name} - Section ${currentClass.section}` : (user?.classId?.name ? `Class ${user.classId.name} - Section ${user.classId.section}` : `${user?.grade || 'Class 9'} - Section ${user?.section || 'B'}`)}
           </p>
         </div>
 
@@ -860,6 +862,9 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
           isOpen={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
           onTaskCreated={loadData}
+          classes={classes}
+          currentClass={currentClass}
+          students={students}
         />
       )}
     </div>

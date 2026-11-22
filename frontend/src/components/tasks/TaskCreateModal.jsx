@@ -1,22 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { taskService } from '../../services/taskService';
-import { Loader2, Calendar, BookOpen, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
-export const TaskCreateModal = ({ isOpen, onClose, onTaskCreated, students = [] }) => {
+export const TaskCreateModal = ({
+  isOpen,
+  onClose,
+  onTaskCreated,
+  students = [],
+  currentClass = null,
+  classes = [],
+}) => {
+  const [selectedClassId, setSelectedClassId] = useState(
+    currentClass?._id || (classes.length > 0 ? classes[0]._id : '')
+  );
+
+  const activeClass =
+    classes.find((c) => c._id === selectedClassId) ||
+    currentClass ||
+    (classes.length > 0 ? classes[0] : null);
+
+  const classLabel = activeClass
+    ? `${activeClass.name} - Section ${activeClass.section}`
+    : 'Entire Class';
+
   const [formData, setFormData] = useState({
     title: '',
     subject: 'Mathematics',
     description: '',
-    grade: 'Grade 8',
     dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     priority: 'medium',
     assignedStudentId: '',
   });
+
+  useEffect(() => {
+    if (currentClass?._id) {
+      setSelectedClassId(currentClass._id);
+    } else if (classes.length > 0 && !selectedClassId) {
+      setSelectedClassId(classes[0]._id);
+    }
+  }, [currentClass, classes]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const subjects = ['Mathematics', 'Science', 'English', 'History', 'Geography', 'Art', 'Physical Education'];
+
+  const filteredStudents = selectedClassId
+    ? students.filter(
+        (s) =>
+          !s.classId ||
+          s.classId === selectedClassId ||
+          s.classId?._id === selectedClassId
+      )
+    : students;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,6 +68,9 @@ export const TaskCreateModal = ({ isOpen, onClose, onTaskCreated, students = [] 
       setLoading(true);
       await taskService.createTask({
         ...formData,
+        classId: activeClass?._id || selectedClassId || null,
+        grade: activeClass?.name || '9',
+        section: activeClass?.section || 'B',
         assignedStudentId: formData.assignedStudentId || null,
       });
       onTaskCreated();
@@ -39,7 +79,6 @@ export const TaskCreateModal = ({ isOpen, onClose, onTaskCreated, students = [] 
         title: '',
         subject: 'Mathematics',
         description: '',
-        grade: 'Grade 8',
         dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
         priority: 'medium',
         assignedStudentId: '',
@@ -74,6 +113,29 @@ export const TaskCreateModal = ({ isOpen, onClose, onTaskCreated, students = [] 
             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
           />
         </div>
+
+        {/* If multiple classes exist, allow choosing class */}
+        {classes.length > 1 && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Academic Class
+            </label>
+            <select
+              value={selectedClassId}
+              onChange={(e) => {
+                setSelectedClassId(e.target.value);
+                setFormData({ ...formData, assignedStudentId: '' });
+              }}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+            >
+              {classes.map((cls) => (
+                <option key={cls._id} value={cls._id}>
+                  {cls.name} - Section {cls.section} {cls.roomNumber ? `(${cls.roomNumber})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -131,10 +193,10 @@ export const TaskCreateModal = ({ isOpen, onClose, onTaskCreated, students = [] 
               onChange={(e) => setFormData({ ...formData, assignedStudentId: e.target.value })}
               className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
             >
-              <option value="">Entire Grade 8 Class</option>
-              {students.map((student) => (
+              <option value="">Entire Class ({classLabel})</option>
+              {filteredStudents.map((student) => (
                 <option key={student._id} value={student._id}>
-                  {student.name} ({student.grade || 'Grade 8'})
+                  {student.name} ({student.grade ? `Class ${student.grade}` : classLabel})
                 </option>
               ))}
             </select>
