@@ -33,6 +33,11 @@ const submissionSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    attachments: [
+      {
+        type: String,
+      },
+    ],
     timeSpentMinutes: {
       type: Number,
       default: 0,

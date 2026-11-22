@@ -242,23 +242,32 @@ export const StudentDashboard = ({ onNavigate }) => {
                       Due: {new Date(task.dueDate).toLocaleDateString()}
                     </p>
 
-                    {/* Work Photo attached preview */}
-                    {submission?.attachmentUrl && (
-                      <div
-                        onClick={() => handleOpenSubmit(task)}
-                        className="mt-2 inline-flex items-center space-x-2.5 p-1.5 bg-white border border-slate-200 rounded-xl shadow-2xs cursor-pointer hover:border-blue-300 transition"
-                      >
-                        <img
-                          src={submission.attachmentUrl}
-                          alt="Homework Work"
-                          className="w-10 h-10 object-cover rounded-lg border border-slate-100"
-                        />
-                        <span className="text-[11px] font-bold text-blue-600 flex items-center space-x-1 pr-2">
-                          <Camera className="w-3.5 h-3.5" />
-                          <span>View Work Photo</span>
-                        </span>
-                      </div>
-                    )}
+                    {/* Work Photo(s) attached preview */}
+                    {((submission?.attachments && submission.attachments.length > 0) || submission?.attachmentUrl) && (() => {
+                      const photos = (submission?.attachments && submission.attachments.length > 0)
+                        ? submission.attachments
+                        : [submission.attachmentUrl];
+                      return (
+                        <div
+                          onClick={() => handleOpenSubmit(task)}
+                          className="mt-2 inline-flex items-center space-x-2.5 p-1.5 bg-white border border-slate-200 rounded-xl shadow-2xs cursor-pointer hover:border-blue-300 transition"
+                        >
+                          <img
+                            src={photos[0]}
+                            alt="Homework Work"
+                            className="w-10 h-10 object-cover rounded-lg border border-slate-100"
+                          />
+                          <span className="text-[11px] font-bold text-blue-600 flex items-center space-x-1 pr-2">
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>
+                              {photos.length === 1
+                                ? 'View Work Photo'
+                                : `View Work Photos (${photos.length} pages)`}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {/* Teacher Feedback pill if graded */}
                     {isGraded && (

@@ -288,8 +288,12 @@ class EmailService {
   /**
    * 5. Send Homework Grade & Review Email (to Parent and Student)
    */
-  async sendGradeReviewEmail({ to, recipientName, studentName, taskTitle, subject, score, maxScore, feedback, teacherName, attachmentUrl }) {
-    const isImage = attachmentUrl && (attachmentUrl.startsWith('data:image') || attachmentUrl.startsWith('http'));
+  async sendGradeReviewEmail({ to, recipientName, studentName, taskTitle, subject, score, maxScore, feedback, teacherName, attachmentUrl, attachments = [] }) {
+    const photoList = Array.isArray(attachments) && attachments.length > 0
+      ? attachments.filter((p) => p && typeof p === 'string')
+      : (attachmentUrl ? [attachmentUrl] : []);
+
+    const isImage = photoList.length > 0;
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 24px;">
@@ -317,9 +321,16 @@ class EmailService {
           </div>
 
           ${isImage ? `
-            <div style="margin-top: 16px; padding: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; text-align: center;">
-              <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px; font-weight: 600;">Student's Submitted Work Photo:</p>
-              <img src="${attachmentUrl}" alt="Student Homework Submission" style="max-width: 100%; max-height: 350px; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: contain;" />
+            <div style="margin-top: 16px; padding: 14px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;">
+              <p style="margin: 0 0 10px 0; color: #64748b; font-size: 12px; font-weight: 600;">Student's Submitted Work Photos (${photoList.length} ${photoList.length === 1 ? 'page' : 'pages'}):</p>
+              <div style="display: block;">
+                ${photoList.map((p, idx) => `
+                  <div style="text-align: center; margin-bottom: 14px; padding: 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9;">
+                    <p style="font-size: 11px; color: #64748b; margin: 0 0 6px 0; font-weight: 700;">Page ${idx + 1}</p>
+                    <img src="${p}" alt="Homework Page ${idx + 1}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: contain; display: inline-block;" />
+                  </div>
+                `).join('')}
+              </div>
             </div>
           ` : ''}
 
@@ -334,7 +345,7 @@ class EmailService {
       to,
       subject: `Grade & Review: ${studentName} scored ${score}/${maxScore} on ${taskTitle}`,
       html,
-      text: `Hello ${recipientName},\n\n${studentName}'s assignment "${taskTitle}" (${subject}) has been graded by ${teacherName}.\nScore: ${score}/${maxScore}\nTeacher Feedback: ${feedback || 'None'}\n`,
+      text: `Hello ${recipientName},\n\n${studentName}'s assignment "${taskTitle}" (${subject}) has been graded by ${teacherName}.\nScore: ${score}/${maxScore}\nTeacher Feedback: ${feedback || 'None'}\nPages Attached: ${photoList.length}\n`,
     });
   }
 }

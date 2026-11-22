@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '../common/Modal';
 import { taskService } from '../../services/taskService';
-import { compressImage } from '../../utils/imageUtils';
+import { compressMultipleImages } from '../../utils/imageUtils';
 import {
   Upload,
   Camera,
@@ -13,6 +13,10 @@ import {
   Loader2,
   Eye,
   FileCheck,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
 } from 'lucide-react';
 
 export const StudentWorkSubmitModal = ({
@@ -22,54 +26,81 @@ export const StudentWorkSubmitModal = ({
   onSubmitted,
 }) => {
   const [submissionText, setSubmissionText] = useState('');
-  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [timeSpentMinutes, setTimeSpentMinutes] = useState('30');
   const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [previewEnlarged, setPreviewEnlarged] = useState(false);
+  const [previewEnlargedIndex, setPreviewEnlargedIndex] = useState(null);
+
+  const fileInputRef = useRef(null);
+  const addMoreInputRef = useRef(null);
 
   useEffect(() => {
     if (task?.submission) {
       setSubmissionText(task.submission.content || '');
-      setAttachmentUrl(task.submission.attachmentUrl || '');
       setTimeSpentMinutes(task.submission.timeSpentMinutes?.toString() || '30');
+
+      if (Array.isArray(task.submission.attachments) && task.submission.attachments.length > 0) {
+        setAttachments(task.submission.attachments);
+      } else if (task.submission.attachmentUrl) {
+        setAttachments([task.submission.attachmentUrl]);
+      } else {
+        setAttachments([]);
+      }
     } else {
       setSubmissionText('');
-      setAttachmentUrl('');
+      setAttachments([]);
       setTimeSpentMinutes('30');
     }
     setError('');
+    setPreviewEnlargedIndex(null);
   }, [task]);
 
   if (!task) return null;
 
-  const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFilesSelect = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setError('');
     setCompressing(true);
     try {
-      const compressedDataUrl = await compressImage(file, 1600, 0.82);
-      setAttachmentUrl(compressedDataUrl);
+      const compressedImages = await compressMultipleImages(files, 1600, 0.82);
+      if (compressedImages.length === 0) {
+        setError('No valid image files found.');
+      } else {
+        setAttachments((prev) => [...prev, ...compressedImages]);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to process selected image.');
+      setError(err.message || 'Failed to process selected photos.');
     } finally {
       setCompressing(false);
+      // Reset input value so same files can be re-selected if needed
+      e.target.value = '';
     }
   };
 
-  const handleRemovePhoto = () => {
-    setAttachmentUrl('');
+  const handleRemovePhoto = (indexToRemove) => {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    if (previewEnlargedIndex === indexToRemove) {
+      setPreviewEnlargedIndex(null);
+    } else if (previewEnlargedIndex > indexToRemove) {
+      setPreviewEnlargedIndex(previewEnlargedIndex - 1);
+    }
+  };
+
+  const handleClearAllPhotos = () => {
+    setAttachments([]);
+    setPreviewEnlargedIndex(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!attachmentUrl && !submissionText.trim()) {
-      setError('Please either upload a photo of your work or type your solution text before turning in.');
+    if (attachments.length === 0 && !submissionText.trim()) {
+      setError('Please upload at least one photo of your work or type your solution text before turning in.');
       return;
     }
 
@@ -77,7 +108,8 @@ export const StudentWorkSubmitModal = ({
     try {
       await taskService.submitAssignment(task._id, {
         content: submissionText.trim(),
-        attachmentUrl: attachmentUrl || '',
+        attachments,
+        attachmentUrl: attachments[0] || '',
         timeSpentMinutes: Number(timeSpentMinutes) || 0,
       });
 
@@ -141,71 +173,114 @@ export const StudentWorkSubmitModal = ({
           )}
 
           {/* Photo Upload Section */}
-          <div className="space-y-1.5">
-            <label className="block font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center justify-between">
-              <span className="flex items-center space-x-1.5">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center space-x-1.5">
                 <Camera className="w-4 h-4 text-blue-600" />
-                <span>Upload Photo of Your Work</span>
+                <span>Upload Photos of Your Work</span>
+              </label>
+              <span className="text-[11px] text-slate-400 font-normal">
+                {attachments.length > 0
+                  ? `${attachments.length} ${attachments.length === 1 ? 'page attached' : 'pages attached'}`
+                  : 'Multiple photos supported (Page 1, 2, ...)'}
               </span>
-              <span className="text-[11px] text-slate-400 font-normal">Notebook, worksheet, or solved paper</span>
-            </label>
+            </div>
 
-            {attachmentUrl ? (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                <div className="relative group rounded-xl overflow-hidden border border-slate-200 bg-white">
-                  <img
-                    src={attachmentUrl}
-                    alt="Homework preview"
-                    className="w-full max-h-56 object-contain mx-auto"
-                  />
-                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewEnlarged(true)}
-                      className="px-3 py-1.5 bg-white/90 hover:bg-white text-slate-800 rounded-lg text-xs font-bold flex items-center space-x-1 shadow-xs cursor-pointer"
+            {attachments.length > 0 ? (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                {/* Multi-photo grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {attachments.map((photo, idx) => (
+                    <div
+                      key={idx}
+                      className="relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs aspect-[4/3] flex items-center justify-center"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Zoom Photo</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRemovePhoto}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1 shadow-xs cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Remove</span>
-                    </button>
-                  </div>
+                      <img
+                        src={photo}
+                        alt={`Homework Page ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+
+                      {/* Page badge */}
+                      <div className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-bold rounded-md">
+                        Page {idx + 1}
+                      </div>
+
+                      {/* Hover action overlay */}
+                      <div className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewEnlargedIndex(idx)}
+                          className="p-1.5 bg-white/90 hover:bg-white text-slate-800 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+                          title="Zoom page"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(idx)}
+                          className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+                          title="Remove this page"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-                  <span className="text-emerald-600 font-semibold flex items-center space-x-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Photo attached & ready for teacher</span>
-                  </span>
-                  <label className="text-blue-600 font-bold hover:underline cursor-pointer">
-                    Replace Photo
+
+                {/* Gallery controls / Add more photos */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => addMoreInputRef.current?.click()}
+                      disabled={compressing}
+                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-bold text-[11px] flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Another Photo / Page</span>
+                    </button>
                     <input
+                      ref={addMoreInputRef}
                       type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
+                      accept="image/*,.png,.jpg,.jpeg,.webp,.heic"
+                      multiple
+                      onChange={handleFilesSelect}
                       className="hidden"
                     />
-                  </label>
+
+                    {compressing && (
+                      <span className="text-[11px] text-blue-600 font-semibold flex items-center space-x-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Processing...</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleClearAllPhotos}
+                    className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    Clear All
+                  </button>
                 </div>
               </div>
             ) : (
               <label className="border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/40 transition rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer text-center space-y-2 bg-slate-50/50">
                 <input
+                  ref={fileInputRef}
                   type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileSelect}
+                  accept="image/*,.png,.jpg,.jpeg,.webp,.heic"
+                  multiple
+                  onChange={handleFilesSelect}
                   className="hidden"
                 />
                 {compressing ? (
                   <div className="flex flex-col items-center space-y-2">
                     <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                    <span className="text-xs font-semibold text-slate-600">Processing photo...</span>
+                    <span className="text-xs font-semibold text-slate-600">Processing photo(s)...</span>
                   </div>
                 ) : (
                   <>
@@ -214,10 +289,10 @@ export const StudentWorkSubmitModal = ({
                     </div>
                     <div>
                       <p className="font-bold text-slate-800 text-xs">
-                        Click or tap to snap / upload photo of your work
+                        Click or tap to snap / upload photos of your work
                       </p>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        Accepts notebook snapshots, mobile photos, or screenshots (PNG, JPG)
+                        Accepts notebook snapshots, mobile photos, or worksheets (PNG, JPG) • You can select multiple photos
                       </p>
                     </div>
                   </>
@@ -301,27 +376,69 @@ export const StudentWorkSubmitModal = ({
       </Modal>
 
       {/* Enlarged Photo Lightbox Modal */}
-      {previewEnlarged && attachmentUrl && (
+      {previewEnlargedIndex !== null && attachments[previewEnlargedIndex] && (
         <div
           className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setPreviewEnlarged(false)}
+          onClick={() => setPreviewEnlargedIndex(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] bg-white rounded-3xl p-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-              <h4 className="font-bold text-slate-900 text-sm">Full Work Photo: {task.title}</h4>
+          <div
+            className="relative max-w-4xl w-full max-h-[90vh] bg-white rounded-3xl p-4 shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm">
+                  Full Work Photo: {task.title}
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Page {previewEnlargedIndex + 1} of {attachments.length}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setPreviewEnlarged(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center"
+                onClick={() => setPreviewEnlargedIndex(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center cursor-pointer"
               >
                 ✕
               </button>
             </div>
-            <img
-              src={attachmentUrl}
-              alt="Full size homework work"
-              className="max-h-[75vh] w-auto mx-auto object-contain rounded-xl"
-            />
+
+            <div className="relative flex-1 flex items-center justify-center min-h-[300px] max-h-[70vh] bg-slate-50 rounded-2xl overflow-hidden p-2">
+              <img
+                src={attachments[previewEnlargedIndex]}
+                alt={`Full homework page ${previewEnlargedIndex + 1}`}
+                className="max-h-[68vh] w-auto mx-auto object-contain rounded-xl"
+              />
+
+              {attachments.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPreviewEnlargedIndex((prev) =>
+                        prev > 0 ? prev - 1 : attachments.length - 1
+                      )
+                    }
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-900/60 hover:bg-slate-900 text-white flex items-center justify-center transition shadow-md cursor-pointer"
+                    title="Previous page"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPreviewEnlargedIndex((prev) =>
+                        prev < attachments.length - 1 ? prev + 1 : 0
+                      )
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-900/60 hover:bg-slate-900 text-white flex items-center justify-center transition shadow-md cursor-pointer"
+                    title="Next page"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

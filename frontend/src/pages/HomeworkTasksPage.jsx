@@ -262,30 +262,44 @@ export const HomeworkTasksPage = () => {
                         </p>
                       )}
 
-                      {/* Photo Thumbnail of Student's Work */}
-                      {sub?.attachmentUrl && (
-                        <div className="pt-2">
-                          <div
-                            onClick={() => setActiveTaskForModal(task)}
-                            className="inline-flex items-center space-x-3 p-2 bg-white border border-slate-200 hover:border-blue-300 rounded-2xl shadow-2xs transition cursor-pointer group"
-                          >
-                            <img
-                              src={sub.attachmentUrl}
-                              alt="Submitted Homework"
-                              className="w-14 h-14 object-cover rounded-xl border border-slate-100 group-hover:scale-105 transition"
-                            />
-                            <div className="pr-3 text-left">
-                              <span className="text-xs font-bold text-slate-900 flex items-center space-x-1">
-                                <Camera className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Work Photo Attached</span>
-                              </span>
-                              <span className="text-[11px] text-blue-600 hover:underline block mt-0.5">
-                                Click to zoom full preview
-                              </span>
+                      {/* Photos of Student's Work */}
+                      {((sub?.attachments && sub.attachments.length > 0) || sub?.attachmentUrl) && (() => {
+                        const photos = (sub?.attachments && sub.attachments.length > 0)
+                          ? sub.attachments
+                          : [sub.attachmentUrl];
+                        return (
+                          <div className="pt-2">
+                            <div
+                              onClick={() => setActiveTaskForModal(task)}
+                              className="inline-flex items-center space-x-3 p-2 bg-white border border-slate-200 hover:border-blue-300 rounded-2xl shadow-2xs transition cursor-pointer group"
+                            >
+                              <div className="relative flex -space-x-2 overflow-hidden">
+                                {photos.slice(0, 3).map((p, pIdx) => (
+                                  <img
+                                    key={pIdx}
+                                    src={p}
+                                    alt={`Page ${pIdx + 1}`}
+                                    className="w-12 h-12 object-cover rounded-xl border-2 border-white shadow-2xs group-hover:scale-105 transition"
+                                  />
+                                ))}
+                              </div>
+                              <div className="pr-3 text-left">
+                                <span className="text-xs font-bold text-slate-900 flex items-center space-x-1">
+                                  <Camera className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>
+                                    {photos.length === 1
+                                      ? 'Work Photo Attached'
+                                      : `${photos.length} Work Photos Attached`}
+                                  </span>
+                                </span>
+                                <span className="text-[11px] text-blue-600 hover:underline block mt-0.5">
+                                  Click to view all pages & review
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Teacher Review Remarks Banner if Graded */}
                       {isGraded && (

@@ -183,9 +183,9 @@ class TaskService {
   }
 
   /**
-   * Submit homework assignment (Student)
+   * Submit homework assignment (Student) - Supports multiple photos/attachments
    */
-  async submitAssignment(studentUser, taskId, { content, attachmentUrl, timeSpentMinutes }) {
+  async submitAssignment(studentUser, taskId, { content, attachmentUrl, attachments, timeSpentMinutes }) {
     if (studentUser.role !== 'student') {
       throw new Error('Only students can submit assignment responses');
     }
@@ -195,12 +195,22 @@ class TaskService {
 
     const schoolId = studentUser.schoolId?._id || studentUser.schoolId;
 
+    let photos = [];
+    if (Array.isArray(attachments)) {
+      photos = attachments.filter((p) => p && typeof p === 'string');
+    } else if (attachmentUrl) {
+      photos = [attachmentUrl];
+    }
+
+    const primaryAttachment = photos[0] || attachmentUrl || '';
+
     let submission = await Submission.findOne({ taskId, studentId: studentUser._id });
 
     if (submission) {
-      submission.content = content || submission.content;
-      submission.attachmentUrl = attachmentUrl || submission.attachmentUrl;
-      submission.timeSpentMinutes = timeSpentMinutes || submission.timeSpentMinutes;
+      submission.content = content !== undefined ? content : submission.content;
+      submission.attachmentUrl = primaryAttachment || submission.attachmentUrl;
+      submission.attachments = photos.length > 0 ? photos : (submission.attachments || []);
+      submission.timeSpentMinutes = timeSpentMinutes !== undefined ? timeSpentMinutes : submission.timeSpentMinutes;
       submission.status = 'submitted';
       submission.submittedAt = new Date();
       await submission.save();
@@ -211,7 +221,8 @@ class TaskService {
         studentId: studentUser._id,
         studentName: studentUser.name,
         content: content || '',
-        attachmentUrl: attachmentUrl || '',
+        attachmentUrl: primaryAttachment,
+        attachments: photos,
         timeSpentMinutes: timeSpentMinutes || 0,
         status: 'submitted',
         maxScore: task.maxScore || 100,
@@ -231,6 +242,7 @@ class TaskService {
       studentName: studentUser.name,
       studentId: studentUser._id,
       submissionId: submission._id,
+      photoCount: photos.length,
     });
 
     return submission;
@@ -254,6 +266,10 @@ class TaskService {
     submission.gradedAt = new Date();
     await submission.save();
 
+    const photos = submission.attachments && submission.attachments.length > 0
+      ? submission.attachments
+      : (submission.attachmentUrl ? [submission.attachmentUrl] : []);
+
     // Broadcast grade update in real-time to student and parent!
     const gradeData = {
       submissionId: submission._id,
@@ -265,6 +281,7 @@ class TaskService {
       feedback: submission.feedback,
       gradedByName: teacherUser.name,
       attachmentUrl: submission.attachmentUrl || null,
+      attachments: photos,
     };
 
     socketService.emitToUser(submission.studentId, 'grade:updated', gradeData);
@@ -287,7 +304,7 @@ class TaskService {
           recipientRole: 'parent',
           title: `Grade & Review: ${student.name} scored ${submission.score}/${submission.maxScore} on ${submission.taskId.title}`,
           content: `Hello ${parentUser.name},\n\nYour child ${student.name}'s homework for "${submission.taskId.title}" (${submission.taskId.subject}) has been evaluated.\n\nScore: ${submission.score} / ${submission.maxScore}\nTeacher Review: "${submission.feedback || 'Good work!'}"`,
-          attachments: submission.attachmentUrl ? [{ name: 'homework_work.jpg', url: submission.attachmentUrl }] : [],
+          attachments: photos.map((p, idx) => ({ name: `homework_page_${idx + 1}.jpg`, url: p })),
           targetGrade: student.grade || '9',
           isBroadcast: false,
         });
@@ -309,6 +326,7 @@ class TaskService {
             feedback: submission.feedback,
             teacherName: teacherUser.name,
             attachmentUrl: submission.attachmentUrl,
+            attachments: photos,
           });
         } catch (emailErr) {
           console.warn('Failed to send grade email to parent:', emailErr.message);
@@ -330,6 +348,7 @@ class TaskService {
           feedback: submission.feedback,
           teacherName: teacherUser.name,
           attachmentUrl: submission.attachmentUrl,
+          attachments: photos,
         });
       } catch (err) {
         console.warn('Failed to email student grade:', err.message);

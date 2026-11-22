@@ -797,39 +797,49 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
                       )}
                     </div>
 
-                    {/* Student's Uploaded Work Photo */}
-                    {sub.attachmentUrl && (
-                      <div className="p-3 bg-white border border-slate-200 rounded-2xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                            <Camera className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Student's Uploaded Work Photo</span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setEnlargedPhotoUrl(sub.attachmentUrl)}
-                            className="text-[11px] font-bold text-blue-600 hover:underline flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>Enlarge Photo</span>
-                          </button>
-                        </div>
-                        <div
-                          onClick={() => setEnlargedPhotoUrl(sub.attachmentUrl)}
-                          className="relative group rounded-xl overflow-hidden border border-slate-100 max-h-64 bg-slate-50 flex items-center justify-center cursor-pointer p-2"
-                        >
-                          <img
-                            src={sub.attachmentUrl}
-                            alt="Student work submission"
-                            className="max-h-60 w-auto object-contain rounded-lg transition group-hover:scale-102"
-                          />
-                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold space-x-1 rounded-xl">
-                            <Eye className="w-4 h-4" />
-                            <span>Click to inspect full resolution</span>
+                    {/* Student's Uploaded Work Photos (Single or Multi-Page) */}
+                    {((sub.attachments && sub.attachments.length > 0) || sub.attachmentUrl) && (() => {
+                      const photos = (sub.attachments && sub.attachments.length > 0)
+                        ? sub.attachments
+                        : [sub.attachmentUrl];
+
+                      return (
+                        <div className="p-3.5 bg-white border border-slate-200 rounded-2xl space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                              <Camera className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Student's Submitted Work ({photos.length} {photos.length === 1 ? 'page' : 'pages'})</span>
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Click any page to zoom in full resolution
+                            </span>
+                          </div>
+
+                          <div className={`grid gap-2.5 ${photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'}`}>
+                            {photos.map((photo, pIdx) => (
+                              <div
+                                key={pIdx}
+                                onClick={() => setEnlargedPhotoUrl(photo)}
+                                className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center cursor-pointer p-1.5 aspect-[4/3]"
+                              >
+                                <img
+                                  src={photo}
+                                  alt={`Homework page ${pIdx + 1}`}
+                                  className="w-full h-full object-contain rounded-lg transition group-hover:scale-102"
+                                />
+                                <div className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-slate-900/80 text-white text-[10px] font-bold rounded-md">
+                                  Page {pIdx + 1}
+                                </div>
+                                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold space-x-1 rounded-xl">
+                                  <Eye className="w-4 h-4" />
+                                  <span>Zoom Page</span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {selectedSubmission?._id === sub._id ? (
                       <form onSubmit={handleGradeSubmit} className="space-y-3 pt-2 border-t border-slate-200">
