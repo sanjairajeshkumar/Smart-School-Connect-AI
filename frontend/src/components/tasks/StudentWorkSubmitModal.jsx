@@ -255,7 +255,7 @@ export const StudentWorkSubmitModal = ({
                     <input
                       ref={addMoreInputRef}
                       type="file"
-                      accept="image/*,.png,.jpg,.jpeg,.webp,.heic"
+                      accept="image/*,.png,.jpg,.jpeg,.webp"
                       multiple
                       onChange={handleFilesSelect}
                       className="hidden"
@@ -283,7 +283,7 @@ export const StudentWorkSubmitModal = ({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*,.png,.jpg,.jpeg,.webp,.heic"
+                  accept="image/*,.png,.jpg,.jpeg,.webp"
                   multiple
                   onChange={handleFilesSelect}
                   className="hidden"
