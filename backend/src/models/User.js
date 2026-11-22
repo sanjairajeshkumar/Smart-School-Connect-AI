@@ -68,11 +68,11 @@ const userSchema = new mongoose.Schema(
     },
     grade: {
       type: String,
-      default: 'Grade 8',
+      default: '',
     },
     section: {
       type: String,
-      default: 'A',
+      default: '',
     },
     // Links between parent and student
     parentId: {

@@ -789,8 +789,31 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                             {u.role}
                           </span>
                         </td>
-                        <td className="py-3.5 text-slate-600">
-                          {u.grade ? `${u.grade} - ${u.section || 'A'}` : '—'}
+                        <td className="py-3.5 text-slate-700">
+                          {u.role === 'super_admin' ? (
+                            <span className="text-slate-400 font-semibold">Campus Admin • All</span>
+                          ) : u.role === 'parent' ? (
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-slate-900 block">
+                                Parent of {u.childrenIds?.map((c) => c.name).join(', ') || 'Linked Student'}
+                              </span>
+                              {u.childrenIds?.[0] && (
+                                <span className="text-[11px] text-blue-600 font-semibold block">
+                                  Class {u.childrenIds[0].classId?.name || u.childrenIds[0].grade || '9'} - {u.childrenIds[0].classId?.section || u.childrenIds[0].section || 'B'}
+                                </span>
+                              )}
+                            </div>
+                          ) : u.classId ? (
+                            <span className="font-bold text-slate-800">
+                              Class {u.classId.name} - {u.classId.section}
+                            </span>
+                          ) : u.grade ? (
+                            <span className="font-bold text-slate-800">
+                              Class {u.grade} - {u.section || 'A'}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
                         </td>
                         <td className="py-3.5">
                           <span className="inline-flex items-center space-x-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">

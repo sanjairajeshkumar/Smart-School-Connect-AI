@@ -387,10 +387,13 @@ export const ParentDashboard = ({ activeTab = 'overview', onNavigate }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Parent Portal: {user?.name || 'David Parker (Parent)'}
+            Parent Portal: {user?.name || 'Parent'}
           </h2>
           <p className="text-sm text-slate-500 mt-1 font-medium">
-            Monitoring: <span className="font-bold text-slate-800">{primaryChild?.name || 'Alex Parker (Student)'}</span> • {primaryChild?.grade || user?.grade || 'Grade 8'}
+            Monitoring: <span className="font-bold text-slate-800">{primaryChild?.name || 'Linked Student'}</span>
+            {(primaryChild?.classId?.name || primaryChild?.grade) && (
+              <span> • Class {primaryChild.classId?.name || primaryChild.grade} - {primaryChild.classId?.section || primaryChild.section || 'B'}</span>
+            )}
           </p>
         </div>
 

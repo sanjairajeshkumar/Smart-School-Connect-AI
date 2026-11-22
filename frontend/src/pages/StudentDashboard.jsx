@@ -141,7 +141,7 @@ export const StudentDashboard = ({ onNavigate }) => {
           Good morning, {user?.name?.split(' ')[0] || 'Student'}
         </h2>
         <p className="text-sm text-slate-500 mt-1 font-medium">
-          {user?.grade || 'Grade 8'} • Homeroom Section {user?.section || 'A'}
+          {user?.classId?.name ? `Class ${user.classId.name} - ${user.classId.section}` : (user?.grade ? `Class ${user.grade} - ${user.section || 'B'}` : 'Enrolled Student')}
         </p>
       </div>
 

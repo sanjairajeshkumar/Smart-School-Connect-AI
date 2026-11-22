@@ -305,7 +305,11 @@ class SchoolService {
     return await User.find(filter)
       .select('name email role status grade section phone createdAt classId childrenIds parentId avatar')
       .populate('classId', 'name section')
-      .populate('childrenIds', 'name grade section')
+      .populate({
+        path: 'childrenIds',
+        select: 'name grade section classId',
+        populate: { path: 'classId', select: 'name section' },
+      })
       .populate('parentId', 'name email phone')
       .sort({ createdAt: -1 });
   }
