@@ -45,8 +45,6 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const currentClass = classes.find((c) => c._id === selectedClassId) || user?.classId;
-
   // Homework Filter State
   const [taskFilter, setTaskFilter] = useState('all');
   const [taskSearch, setTaskSearch] = useState('');
@@ -56,6 +54,8 @@ export const TeacherDashboard = ({ activeTab = 'overview', onNavigate }) => {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [attendanceSaving, setAttendanceSaving] = useState(false);
+
+  const currentClass = classes.find((c) => c._id === selectedClassId) || user?.classId;
 
   // Grading Modal State
   const [gradingTask, setGradingTask] = useState(null);
