@@ -202,10 +202,14 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       setNewClassName('');
       loadData();
     } catch (err) {
+      const msg =
+        err.message === 'Network Error'
+          ? 'Server connection timeout. The backend is waking up, please retry shortly.'
+          : err.response?.data?.message || err.message;
       addNotification({
         type: 'error',
         title: 'Error Creating Class',
-        message: err.response?.data?.message || err.message,
+        message: msg,
       });
     } finally {
       setClassLoading(false);

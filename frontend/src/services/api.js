@@ -4,6 +4,7 @@ const backendUrl = import.meta.env.VITE_BACKEND_URL || (import.meta.env.PROD ? '
 
 const api = axios.create({
   baseURL: backendUrl ? `${backendUrl.replace(/\/$/, '')}/api` : '/api',
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
