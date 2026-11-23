@@ -46,6 +46,21 @@ export const schoolService = {
     return res.data;
   },
 
+  async removeUser(userId) {
+    const res = await api.delete(`/school/users/${userId}`);
+    return res.data;
+  },
+
+  async unenrollStudent(classId, studentId) {
+    const res = await api.delete(`/school/classes/${classId}/students/${studentId}`);
+    return res.data;
+  },
+
+  async unassignTeacher(classId, teacherId) {
+    const res = await api.delete(`/school/classes/${classId}/teachers/${teacherId}`);
+    return res.data;
+  },
+
   async getInvitations() {
     const res = await api.get('/school/invitations');
     return res.data;

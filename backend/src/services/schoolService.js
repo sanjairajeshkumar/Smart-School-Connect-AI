@@ -313,6 +313,81 @@ class SchoolService {
       .populate('parentId', 'name email phone')
       .sort({ createdAt: -1 });
   }
+
+  /**
+   * Remove member / Kick out from school and class (Superadmin / School admin)
+   */
+  async removeSchoolMember(schoolId, userId) {
+    const user = await User.findOne({ _id: userId, schoolId });
+    if (!user) {
+      throw new Error('User not found in this school');
+    }
+
+    if (user.role === 'super_admin' || user.email === 'admin') {
+      throw new Error('Super Administrator account is protected and cannot be removed');
+    }
+
+    // 1. If teacher, unassign from homeroom of any class
+    if (user.role === 'teacher') {
+      await Class.updateMany(
+        { schoolId, homeroomTeacherId: user._id },
+        { $unset: { homeroomTeacherId: 1 } }
+      );
+    }
+
+    // 2. If student, unlink from parent
+    if (user.role === 'student' && user.parentId) {
+      await User.findByIdAndUpdate(user.parentId, {
+        $pull: { childrenIds: user._id },
+      });
+    }
+
+    // 3. If parent, clear parent link on children
+    if (user.role === 'parent' && user.childrenIds && user.childrenIds.length > 0) {
+      await User.updateMany(
+        { _id: { $in: user.childrenIds } },
+        { $unset: { parentId: 1 } }
+      );
+    }
+
+    // 4. Revoke or remove any pending invitations for this user's email
+    await Invitation.deleteMany({ schoolId, email: user.email.toLowerCase() });
+
+    // 5. Delete the user
+    await User.findByIdAndDelete(userId);
+
+    return {
+      success: true,
+      message: `${user.name} (${user.role}) has been kicked out and removed from the school.`,
+    };
+  }
+
+  /**
+   * Unenroll student from a specific class
+   */
+  async unenrollStudentFromClass(schoolId, classId, studentId) {
+    const user = await User.findOne({ _id: studentId, schoolId });
+    if (!user) throw new Error('Student not found');
+    user.classId = null;
+    user.grade = '';
+    user.section = '';
+    await user.save();
+    return { success: true, message: `${user.name} has been removed from this class.` };
+  }
+
+  /**
+   * Unassign teacher from class
+   */
+  async unassignTeacherFromClass(schoolId, classId, teacherId) {
+    const classObj = await Class.findOne({ _id: classId, schoolId });
+    if (!classObj) throw new Error('Class not found');
+    if (classObj.homeroomTeacherId && classObj.homeroomTeacherId.toString() === teacherId.toString()) {
+      classObj.homeroomTeacherId = null;
+      await classObj.save();
+    }
+    await User.findOneAndUpdate({ _id: teacherId, schoolId }, { $set: { classId: null } });
+    return { success: true, message: 'Teacher unassigned from class.' };
+  }
 }
 
 module.exports = new SchoolService();

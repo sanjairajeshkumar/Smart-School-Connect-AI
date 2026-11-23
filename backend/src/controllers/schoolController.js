@@ -108,6 +108,33 @@ class SchoolController {
       next(error);
     }
   }
+
+  async removeUser(req, res, next) {
+    try {
+      const result = await schoolService.removeSchoolMember(req.schoolId, req.params.id);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
+  async unenrollStudent(req, res, next) {
+    try {
+      const result = await schoolService.unenrollStudentFromClass(req.schoolId, req.params.id, req.params.studentId);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
+  async unassignTeacher(req, res, next) {
+    try {
+      const result = await schoolService.unassignTeacherFromClass(req.schoolId, req.params.id, req.params.teacherId);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
 }
 
 module.exports = new SchoolController();
