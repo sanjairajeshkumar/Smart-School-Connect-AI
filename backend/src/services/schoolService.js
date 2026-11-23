@@ -106,7 +106,7 @@ class SchoolService {
   /**
    * Create Academic Class
    */
-  async createClass(schoolId, { name, section, academicYear, roomNumber, homeroomTeacherId }) {
+  async createClass(schoolId, { name, section, academicYear, roomNumber, homeroomTeacherId, schedule }) {
     if (!name) throw new Error('Class name is required (e.g. Grade 8)');
     const sec = (section || 'A').toUpperCase();
 
