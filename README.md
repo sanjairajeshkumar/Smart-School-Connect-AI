@@ -9,14 +9,15 @@
 
 **Smart School Connect** is a responsive, full-stack school communication and task management platform built to streamline academic workflows across teachers, parents, and students. Based on the domain flow and UI architecture in `Smart_School_Connect_Architect_UI_Brief.pdf`, the system provides:
 
-1. **Role-Based Workspaces**: Scoped views for **Teacher**, **Parent**, and **Student**, with strict role isolation and data access policies.
-2. **Unified Login & Student PIN Access**: Standard `email` + `password` authentication for staff and parents, plus a dedicated **4-digit PIN access flow** for students (accessible from the login screen or parent dashboard).
-3. **Teacher Task Creation & Management**: Real CRUD persistence in MongoDB with subject, class/grade, priority, instructions, and due dates.
-4. **Parent Task Batching & Sequencing**: Allows parents to organize larger homework lists into sequential batches (e.g., releasing Batch 1 first, keeping Batch 2 locked until completion) to prevent student overload.
-5. **Student To-Do & Progress Tracking**: Interactive task view with `All`, `Pending`, and `Completed` filters, study time tracking (in minutes), student reflection notes, and instant MongoDB status synchronization.
-6. **Teacher-to-Parent Messaging with Mandatory Human Review**: AI message rewriting with tone controls (Encouraging, Clear & Direct, Urgent Reminder), editable preview modal, and **mandatory teacher review and approval** before delivery.
-7. **AI-Powered Academic Digest for Educators & Parents**: Summarizes student task completion rates, average time spent, pending work, overdue alerts, and communication history without reading raw logs.
-8. **Interactive "Ask School AI" Assistant**: Chat interface supporting **Groq (Llama-3.3-70b)**, **Google Gemini**, and **NVIDIA Nemotron**, grounded strictly in MongoDB school records with graceful offline fallback.
+1. **Role-Based Workspaces & Campus Administration**: Scoped views for **Super Administrator**, **Teacher**, **Parent**, and **Student**, with strict tenant isolation and data access policies.
+2. **Super Administrator & School Provisioning**: Comprehensive school management portal to configure academic classes, send email invitations for faculty, students, and parents, link parents to children, and moderate members with instant Kick Out controls.
+3. **Unified Login & Student PIN Access**: Standard `email` / username + `password` authentication for admins, staff, and parents, plus a dedicated **4-digit PIN access flow** for students (accessible from the login screen or parent dashboard).
+4. **Teacher Task Creation & Management**: Real CRUD persistence in MongoDB with subject, class/grade, priority, instructions, and due dates.
+5. **Parent Task Batching & Sequencing**: Allows parents to organize larger homework lists into sequential batches (e.g., releasing Batch 1 first, keeping Batch 2 locked until completion) to prevent student overload.
+6. **Student To-Do, Work Photo Upload & Progress Tracking**: Interactive task view with `All`, `Pending`, and `Completed` filters, homework photo submission, study time tracking (in minutes), student reflection notes, and instant MongoDB status synchronization.
+7. **Teacher-to-Parent Messaging with Mandatory Human Review**: AI message rewriting with tone controls (Encouraging, Clear & Direct, Urgent Reminder), editable preview modal, and **mandatory teacher review and approval** before delivery.
+8. **AI-Powered Academic Digest for Educators & Parents**: Summarizes student task completion rates, average time spent, pending work, overdue alerts, and communication history without reading raw logs.
+9. **Interactive "Ask School AI" Assistant**: Chat interface supporting **Groq (Llama-3.3-70b)**, **Google Gemini**, and **NVIDIA Nemotron**, grounded strictly in MongoDB school records with graceful offline fallback.
 
 ---
 
@@ -125,15 +126,40 @@ All AI API keys remain **strictly on the backend** in `backend/.env`.
 
 ## 👥 Seed Accounts & Demo Credentials
 
-When the server starts, it automatically seeds realistic records matching the project brief:
+When the server starts, it provides pre-configured credentials for all roles:
 
-| Role | Email / Access | Password / PIN | Description |
+| Role | Email / Access | Password / PIN | Description & Capabilities |
 | :--- | :--- | :--- | :--- |
-| **Teacher** | `teacher@school.com` | `password123` | Grade 8 Teacher (Ms. Taylor). Creates tasks, reviews AI drafts, sends updates. |
-| **Parent** | `parent.sarah@school.com` | `password123` | Parent (Sarah Johnson). Organizes Alex's task batches, views AI progress digests. |
-| **Student** | **Alex Johnson** | PIN: `1234` | Grade 8 Student. Accessible via **PIN keypad** on login or parent dashboard. |
+| **Super Administrator** | `admin` | `admin123` *(or `12345678`)* | **Tenant & School Admin**: Creates academic classes, dispatches onboarding email invitations for Teachers, Students & Parents, links parents to children, monitors school-wide attendance, and moderates members (Kick Out / Unenroll). |
+| **Teacher** | `teacher@school.com` | `password123` | **Educator**: Creates homework tasks, reviews student work snapshots, grades submissions with feedback, marks live attendance, and uses AI message composer. |
+| **Parent** | `parent.sarah@school.com` | `password123` | **Parent / Guardian**: Linked to enrolled student(s), views live attendance, tracks homework submissions & teacher remarks, organizes task batches. |
+| **Student** | **Alex Johnson** *(or invited student)* | PIN: `1234` | **Enrolled Student**: Submits homework snapshots/photos, logs study minutes, checks timetable and AI helper. Accessible via PIN keypad or email login. |
 
-> 💡 **Demo Shortcut**: The login page and navigation bar include **1-Click Demo Profile Switchers** so you can jump between Teacher, Parent, and Student modes without retyping credentials.
+> 💡 **Demo Shortcut**: The login page and navigation bar include **1-Click Demo Profile Switchers** so you can jump between Super Admin, Teacher, Parent, and Student modes without retyping credentials.
+
+### 🔑 Super Administrator Workflow: Classes & Member Provisioning
+
+The **Super Administrator Portal** allows complete end-to-end management of the school tenant:
+
+1. **Academic Classes & Structure**:
+   - Navigate to **Classes & Structure** → click **+ Create Class**.
+   - Set Class / Grade Name (e.g. `Grade 10`), Section (`A`), and Room Number (`01`).
+   - Add custom weekly schedule/timetable items or remove periods.
+
+2. **Member Onboarding & Invitations**:
+   - Click **+ Invite Member** from the dashboard or Directory view.
+   - **Teacher**: Enter full name and email; optionally map them as homeroom instructor for a class.
+   - **Student**: Enter full name and email; assign them to an academic class cohort.
+   - **Parent**: Enter full name and email; select the child from the **Link to Enrolled Student** dropdown. Once accepted, the parent is securely bound to the child’s attendance, homework submissions, and teacher updates.
+
+3. **Live Directory & Moderation Controls**:
+   - Search members across all roles with real-time class linkage indicators.
+   - **Kick Out Member**: One-click instant revocation and removal of any member (educator, student, or parent) from the school.
+   - **Unassign / Unenroll**: Easily unassign teachers from homerooms or unenroll students from classes.
+
+4. **Campus Attendance & Academic Analytics**:
+   - School-wide daily attendance rollup and percentage tracking.
+   - Platform license seat monitoring (e.g., 500 seats limit).
 
 ---
 

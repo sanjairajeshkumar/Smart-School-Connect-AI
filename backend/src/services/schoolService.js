@@ -233,12 +233,20 @@ class SchoolService {
     // Revoke previous pending invites for this email in this school
     await Invitation.deleteMany({ schoolId: school._id, email: cleanEmail, status: 'pending' });
 
+    let resolvedClassId = classId || null;
+    if (role === 'parent' && studentId && !resolvedClassId) {
+      const studentUser = await User.findById(studentId);
+      if (studentUser && studentUser.classId) {
+        resolvedClassId = studentUser.classId;
+      }
+    }
+
     const invitation = await Invitation.create({
       schoolId: school._id,
       email: cleanEmail,
       name: name.trim(),
       role,
-      classId: classId || null,
+      classId: resolvedClassId,
       studentId: studentId || null,
       token,
       invitedBy: inviterUser._id,

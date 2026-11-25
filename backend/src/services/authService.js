@@ -490,6 +490,12 @@ class AuthService {
 
     if (invite.role === 'parent' && invite.studentId) {
       user.childrenIds = [invite.studentId];
+      const studentObj = await User.findById(invite.studentId);
+      if (studentObj) {
+        if (!user.classId && studentObj.classId) user.classId = studentObj.classId;
+        if (studentObj.grade) user.grade = studentObj.grade;
+        if (studentObj.section) user.section = studentObj.section;
+      }
       await user.save();
       await User.findByIdAndUpdate(invite.studentId, { parentId: user._id });
     }

@@ -130,7 +130,25 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
 
   useEffect(() => {
     loadData();
+    const handleFocus = () => loadData();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [attendanceDate]);
+
+  // Open invite modal with fresh roster sync
+  const handleOpenInvite = async (role = 'teacher', classId = '') => {
+    setInviteRole(role);
+    if (classId) setInviteClassId(classId);
+    setIsInviteOpen(true);
+    try {
+      const [studentRes, usersRes] = await Promise.all([
+        authService.getLinkedStudents().catch(() => ({ success: false })),
+        schoolService.getUsers().catch(() => ({ success: false })),
+      ]);
+      if (studentRes.success) setStudentsList(studentRes.data || []);
+      if (usersRes.success) setDirectoryUsers(usersRes.data || []);
+    } catch (e) {}
+  };
 
   // Handle Send Invitation
   const handleSendInvite = async (e) => {
@@ -486,7 +504,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
 
           {activeTab === 'invitations' && (
             <button
-              onClick={() => setIsInviteOpen(true)}
+              onClick={() => handleOpenInvite('teacher')}
               className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
             >
               <MailPlus className="w-4 h-4" />
@@ -504,7 +522,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                 <span>New Class</span>
               </button>
               <button
-                onClick={() => setIsInviteOpen(true)}
+                onClick={() => handleOpenInvite('teacher')}
                 className="px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
               >
                 <MailPlus className="w-4 h-4" />
@@ -1194,7 +1212,20 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Assign Role</label>
                 <select
                   value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
+                  onChange={async (e) => {
+                    const val = e.target.value;
+                    setInviteRole(val);
+                    if (val === 'parent') {
+                      try {
+                        const [studentRes, usersRes] = await Promise.all([
+                          authService.getLinkedStudents().catch(() => ({ success: false })),
+                          schoolService.getUsers().catch(() => ({ success: false })),
+                        ]);
+                        if (studentRes.success) setStudentsList(studentRes.data || []);
+                        if (usersRes.success) setDirectoryUsers(usersRes.data || []);
+                      } catch (err) {}
+                    }
+                  }}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm capitalize"
                 >
                   <option value="teacher">Teacher</option>
@@ -1223,19 +1254,46 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
 
               {inviteRole === 'parent' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Link to Enrolled Student</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">Link to Enrolled Student</label>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const [studentRes, usersRes] = await Promise.all([
+                            authService.getLinkedStudents().catch(() => ({ success: false })),
+                            schoolService.getUsers().catch(() => ({ success: false })),
+                          ]);
+                          if (studentRes.success) setStudentsList(studentRes.data || []);
+                          if (usersRes.success) setDirectoryUsers(usersRes.data || []);
+                        } catch (err) {}
+                      }}
+                      className="text-[11px] font-bold text-blue-600 hover:underline flex items-center space-x-1"
+                    >
+                      <span>↻ Refresh Students</span>
+                    </button>
+                  </div>
                   <select
                     value={inviteStudentId}
                     onChange={(e) => setInviteStudentId(e.target.value)}
+                    required
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                   >
                     <option value="">Select child...</option>
-                    {studentsList.map((s) => (
+                    {(studentsList.length > 0
+                      ? studentsList
+                      : directoryUsers.filter((u) => u.role === 'student')
+                    ).map((s) => (
                       <option key={s._id} value={s._id}>
-                        {s.name} ({s.email})
+                        {s.name} ({s.email}) {s.grade ? `- ${s.grade} ${s.section || ''}` : ''}
                       </option>
                     ))}
                   </select>
+                  {(studentsList.length === 0 && directoryUsers.filter((u) => u.role === 'student').length === 0) && (
+                    <p className="text-[11px] text-amber-600 mt-1.5 leading-relaxed bg-amber-50 border border-amber-200 rounded-lg p-2">
+                      ⚠️ No active students found in directory. If the student recently accepted an invite, click <strong>Refresh Students</strong> above.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1524,11 +1582,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                     <div className="p-4 bg-white rounded-2xl border border-slate-200 text-xs text-slate-500 flex items-center justify-between">
                       <span>No specific faculty explicitly mapped. Homeroom curriculum led by School Faculty.</span>
                       <button
-                        onClick={() => {
-                          setInviteRole('teacher');
-                          setInviteClassId(selectedClassForModal._id);
-                          setIsInviteOpen(true);
-                        }}
+                        onClick={() => handleOpenInvite('teacher', selectedClassForModal._id)}
                         className="text-xs font-bold text-indigo-600 hover:underline"
                       >
                         + Assign / Invite Teacher
@@ -1586,11 +1640,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                     </div>
 
                     <button
-                      onClick={() => {
-                        setInviteRole('student');
-                        setInviteClassId(selectedClassForModal._id);
-                        setIsInviteOpen(true);
-                      }}
+                      onClick={() => handleOpenInvite('student', selectedClassForModal._id)}
                       className="px-3.5 py-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center space-x-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -1616,11 +1666,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                             <td colSpan="6" className="py-8 text-center text-slate-400">
                               <p className="font-medium text-xs">No students currently enrolled in this class.</p>
                               <button
-                                onClick={() => {
-                                  setInviteRole('student');
-                                  setInviteClassId(selectedClassForModal._id);
-                                  setIsInviteOpen(true);
-                                }}
+                                onClick={() => handleOpenInvite('student', selectedClassForModal._id)}
                                 className="mt-2 text-xs font-bold text-blue-600 hover:underline inline-flex items-center space-x-1"
                               >
                                 <span>+ Send Invitation Link to Student</span>
