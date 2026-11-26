@@ -3,7 +3,6 @@ const School = require('../models/School');
 const Class = require('../models/Class');
 const User = require('../models/User');
 const Invitation = require('../models/Invitation');
-const FeeInvoice = require('../models/FeeInvoice');
 const Attendance = require('../models/Attendance');
 const emailService = require('./emailService');
 
@@ -42,7 +41,6 @@ class SchoolService {
       classesCount,
       school,
       todayAttendance,
-      feeInvoices,
     ] = await Promise.all([
       User.countDocuments({ schoolId, role: 'student' }),
       User.countDocuments({ schoolId, role: 'teacher' }),
@@ -50,7 +48,6 @@ class SchoolService {
       Class.countDocuments({ schoolId }),
       School.findById(schoolId),
       Attendance.find({ schoolId, date: new Date().toISOString().split('T')[0] }),
-      FeeInvoice.find({ schoolId }),
     ]);
 
     // Calculate attendance percentage for today
@@ -68,19 +65,6 @@ class SchoolService {
       ? Math.round((presentCount / totalAttendanceRecords) * 100)
       : 96; // Healthy baseline if not marked yet today
 
-    // Calculate fee analytics
-    let totalBilled = 0;
-    let totalCollected = 0;
-    let pendingInvoices = 0;
-    for (const inv of feeInvoices) {
-      totalBilled += inv.amount;
-      if (inv.status === 'paid') {
-        totalCollected += inv.amount;
-      } else {
-        pendingInvoices++;
-      }
-    }
-
     return {
       studentsCount,
       teachersCount,
@@ -93,13 +77,6 @@ class SchoolService {
       subscriptionPlan: school?.subscriptionPlan || 'pro',
       subscriptionStatus: school?.subscriptionStatus || 'active',
       academicYear: school?.currentAcademicYear || '2026-2027',
-      financials: {
-        totalBilled,
-        totalCollected,
-        pendingAmount: totalBilled - totalCollected,
-        pendingInvoices,
-        collectionRate: totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0,
-      },
     };
   }
 

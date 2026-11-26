@@ -109,12 +109,10 @@ export default function App() {
       if (activeTab === 'homework') {
         return <HomeworkTasksPage />;
       }
-      if (activeTab === 'messages') {
-        return <MessagesPage />;
-      }
       if (activeTab === 'ai-assistant') {
         return <AIAssistantPage />;
       }
+      return <StudentDashboard onNavigate={setActiveTab} />;
     }
 
     // Fallback based on role

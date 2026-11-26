@@ -53,7 +53,6 @@ export const Sidebar = ({ activeTab, onSelectTab, role }) => {
     return [
       { id: 'overview', label: 'My School Day', icon: LayoutDashboard },
       { id: 'homework', label: 'My Assignments', icon: BookOpen },
-      { id: 'messages', label: 'Announcements', icon: MessageSquare },
       { id: 'ai-assistant', label: 'Ask School AI', icon: Bot, isAi: true },
     ];
   };
@@ -99,7 +98,7 @@ export const Sidebar = ({ activeTab, onSelectTab, role }) => {
             {role === 'school_admin' && 'Manage tenant classes, send real email invites to staff/students/parents, track attendance and SaaS limits.'}
             {role === 'teacher' && 'Mark daily live attendance, publish assignments, grade student submissions, and compose parent updates.'}
             {role === 'parent' && 'Track live attendance, review graded work, sequence focus study batches, and communicate with teachers.'}
-            {role === 'student' && 'View your daily timetable, submit assignments for grading, and check real-time school announcements.'}
+            {role === 'student' && 'View your daily timetable, submit assignments for grading, and track your learning progress.'}
           </p>
         </div>
       </div>

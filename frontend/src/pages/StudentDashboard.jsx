@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { taskService } from '../services/taskService';
-import { messageService } from '../services/messageService';
 import { attendanceService } from '../services/attendanceService';
 import { getSocket } from '../services/socket';
 import { Badge } from '../components/common/Badge';
@@ -10,7 +9,6 @@ import { StudentWorkSubmitModal } from '../components/tasks/StudentWorkSubmitMod
 import {
   BookOpen,
   Calendar,
-  MessageSquare,
   Sparkles,
   CheckCircle2,
   Clock,
@@ -24,7 +22,6 @@ import {
 export const StudentDashboard = ({ onNavigate }) => {
   const { user, addNotification } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [messages, setMessages] = useState([]);
   const [attendance, setAttendance] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,14 +34,12 @@ export const StudentDashboard = ({ onNavigate }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [taskRes, msgRes, attRes] = await Promise.all([
+      const [taskRes, attRes] = await Promise.all([
         taskService.getTasks(),
-        messageService.getMessages(),
         attendanceService.getStudentAttendance(user?._id),
       ]);
 
       if (taskRes.success) setTasks(taskRes.data);
-      if (msgRes.success) setMessages(msgRes.data);
       if (attRes.success) setAttendance(attRes.data);
     } catch (err) {
       console.error('Failed to load student dashboard:', err);
@@ -146,7 +141,7 @@ export const StudentDashboard = ({ onNavigate }) => {
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div
           onClick={() => onNavigate('homework')}
           className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:border-blue-300 transition cursor-pointer"
@@ -169,16 +164,6 @@ export const StudentDashboard = ({ onNavigate }) => {
             {attendance?.attendancePercentage || 98}%
           </span>
           <span className="text-xs font-semibold text-slate-500">Attendance Rate</span>
-        </div>
-
-        <div
-          onClick={() => onNavigate('messages')}
-          className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:border-blue-300 transition cursor-pointer"
-        >
-          <span className="text-3xl font-extrabold text-indigo-600 block mb-1">
-            {messages.length}
-          </span>
-          <span className="text-xs font-semibold text-slate-500">School Notices</span>
         </div>
       </div>
 

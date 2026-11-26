@@ -539,7 +539,7 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
       {activeTab === 'overview' && (
         <div className="space-y-8 animate-in fade-in duration-200">
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             <div 
               onClick={() => onNavigate('invitations')} 
               className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:border-blue-300 cursor-pointer transition"
@@ -589,22 +589,6 @@ export const SchoolAdminDashboard = ({ activeTab = 'overview', onNavigate }) => 
                 <span>Daily roll-call details</span>
                 <ChevronRight className="w-3 h-3" />
               </span>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-500">Platform License</span>
-                <ShieldCheck className="w-4 h-4 text-purple-600" />
-              </div>
-              <span className="text-3xl font-extrabold text-slate-900 block">
-                {analytics?.totalUsers || 0} / {analytics?.seatsLimit || 500}
-              </span>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div
-                  className="bg-purple-600 h-1.5 rounded-full"
-                  style={{ width: `${analytics?.seatsUsedPercentage || 10}%` }}
-                />
-              </div>
             </div>
           </div>
 
