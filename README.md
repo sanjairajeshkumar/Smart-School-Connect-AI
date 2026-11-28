@@ -11,7 +11,7 @@
 
 1. **Multi-Tenant Campus Architecture & Isolation**: Full SaaS multi-tenant isolation via `tenantGuard` middleware, ensuring that users, classes, attendance, tasks, and communications remain strictly partitioned per school tenant.
 2. **Super Administrator & School Provisioning Portal**: End-to-end administration suite to configure academic classes, rooms, and weekly schedules, dispatch email onboarding invitations for faculty, students, and parents, link parents to children, and moderate members with instant Kick Out controls.
-3. **Unified Login & Student PIN Access**: Standard `email` / username + `password` authentication for administrators, educators, and parents, plus a dedicated **4-digit PIN access flow** for students (accessible from the login screen or parent dashboard without requiring an email address).
+3. **Unified Role-Based Authentication**: Standard `email` / username + `password` authentication across all roles (Administrators, Educators, Parents, and Students). All accounts are provisioned via secure email invitations dispatched by the Super Administrator, with integrated email OTP verification and self-service password reset.
 4. **Teacher Classroom & Grading Studio**: Full assignment management with subject, class/grade, priority, instructions, max scores, and due dates. Includes an interactive grading modal with full-resolution student work photo review and qualitative teacher remarks.
 5. **Multi-Photo Homework Submission with In-Memory Fast Processing**: Students can attach multiple photos of their handwritten notebooks, worksheets, or solved assignments. Features client-side image compression, canvas downscaling, and Apple HEIC/HEIF format auto-detection with zero browser freezing.
 6. **Live Classroom Attendance Roll-Call & Absentee Parent Alerts**: Daily attendance sheet with Present, Late, and Absent statuses, one-click "Mark All Present" toggle, real-time WebSocket broadcast, and automated asynchronous email alerts sent directly to parents of absent students.
@@ -114,10 +114,10 @@
   * Written explanation / solution notes input.
   * Study Time Logger (tracks minutes spent on the assignment).
   * One-click "Turn In Work & Submit for Review" button that alerts the educator in real-time.
-* **Student Authentication & PIN Management**:
-  * Email + Password login.
-  * **4-Digit Student PIN Login**: Fast numeric keypad entry from the login screen without needing an email address.
-  * Dedicated PIN setup and reset capabilities.
+* **Student Account & Authentication**:
+  * Secure invitation-based onboarding via email with custom password creation.
+  * Standard Email + Password sign-in across desktop and mobile devices.
+  * Self-service password recovery flow via registered student email.
 * **Ask School AI Helper**:
   * Interactive AI homework helper grounded strictly in the student's assigned curriculum and timetable.
 
@@ -193,7 +193,7 @@ Smart School Connect/
 │   │   │   ├── db.js                 # Mongo connection (supports MongoMemoryServer + external URI)
 │   │   │   └── env.js                # Server-only environment configuration
 │   │   ├── models/
-│   │   │   ├── User.js               # Multi-role user model (roles, student PIN, family links)
+│   │   │   ├── User.js               # Multi-role user model (roles, class mapping, family links)
 │   │   │   ├── School.js             # Multi-tenant school model (slug, settings)
 │   │   │   ├── Class.js              # Academic class model (name, section, room, schedule)
 │   │   │   ├── Task.js               # Homework task model with subject, priority, maxScore
@@ -208,7 +208,7 @@ Smart School Connect/
 │   │   │   ├── taskBatchRepository.js
 │   │   │   └── messageRepository.js
 │   │   ├── services/                 # Business logic & permission verification
-│   │   │   ├── authService.js        # Auth, JWT, student PIN, superadmin security, invite onboarding
+│   │   │   ├── authService.js        # Auth, JWT, superadmin security, invite onboarding, password recovery
 │   │   │   ├── schoolService.js      # Tenant profile, class CRUD, member provisioning, Kick Out
 │   │   │   ├── attendanceService.js  # Class roll-call, real-time broadcasts, parent email alerts
 │   │   │   ├── taskService.js        # Assignment CRUD, photo submissions, grading & parent alerts
@@ -251,7 +251,6 @@ Smart School Connect/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── common/               # Navbar, Sidebar, Badge, Modal, LoadingSpinner, EmptyState, Toast
-│   │   │   ├── auth/                 # StudentPinModal (keypad PIN authentication)
 │   │   │   ├── tasks/                # StudentWorkSubmitModal, TaskCreateModal, TaskBatchManager
 │   │   │   ├── messages/             # TeacherMessageComposer, AIDraftReviewModal
 │   │   │   └── ai/                   # AIAssistantChat, AISummaryCard
@@ -294,14 +293,14 @@ Smart School Connect/
 
 When the server starts, it provides pre-configured credentials for all roles:
 
-| Role | Email / Access | Password / PIN | Description & Capabilities |
+| Role | Email / Access | Password | Description & Capabilities |
 | :--- | :--- | :--- | :--- |
 | **Super Administrator** | `admin` | `admin123` *(or `12345678`)* | **Tenant & School Admin**: Creates academic classes, dispatches onboarding email invitations for Teachers, Students & Parents, links parents to children, monitors school-wide attendance, and moderates members (Kick Out / Unenroll). |
-| **Teacher** | `teacher@school.com` | `password123` | **Educator**: Creates homework tasks, reviews student work snapshots, grades submissions with feedback, marks live attendance, and uses AI message composer. |
-| **Parent** | `parent.sarah@school.com` | `password123` | **Parent / Guardian**: Linked to enrolled student(s), views live attendance, tracks homework submissions & teacher remarks, organizes task batches. |
-| **Student** | **Alex Johnson** *(or invited student)* | PIN: `1234` | **Enrolled Student**: Submits homework snapshots/photos, logs study minutes, checks timetable and AI helper. Accessible via PIN keypad or email login. |
+| **Teacher** | `teacher@school.com` *(or invited email)* | `password123` | **Educator**: Creates homework tasks, reviews student work snapshots, grades submissions with feedback, marks live attendance, and uses AI message composer. |
+| **Parent** | `parent.sarah@school.com` *(or invited email)* | `password123` | **Parent / Guardian**: Linked to enrolled student(s), views live attendance, tracks homework submissions & teacher remarks, organizes task batches. |
+| **Student** | `student@school.com` *(or invited email)* | `password123` | **Enrolled Student**: Submits homework snapshots/photos, logs study minutes, checks timetable and AI helper. Authenticated via standard email and password. |
 
-> 💡 **Demo Shortcut**: The login page and navigation bar include **1-Click Demo Profile Switchers** so you can jump between Super Admin, Teacher, Parent, and Student modes without retyping credentials.
+> 💡 **Security & Invitations**: All non-admin accounts (Teachers, Students, and Parents) are provisioned through secure email invitations sent by the Super Administrator. Users activate their account by setting their password through the emailed onboarding link.
 
 ---
 
@@ -371,7 +370,7 @@ Open **`http://localhost:5173`** in your browser!
 
 ## 🧪 Automated End-to-End Verification
 
-An automated test suite validates the entire API, database seeding, auth roles, student PIN, task updates, AI rewriting, AI progress digest, and Ask School AI:
+An automated test suite validates the entire API, database seeding, auth roles, student email onboarding, task updates, AI rewriting, AI progress digest, and Ask School AI:
 
 ```bash
 # While the backend is running:
@@ -389,7 +388,7 @@ Status: 200, Response: { status: 'online', app: 'Smart School Connect API' }
 2. Testing Teacher Login (teacher@school.com)...
 Status: 200, Role: teacher, Name: Ms. Taylor
 
-3. Testing Student PIN Login (PIN: 1234)...
+3. Testing Student Email Login & Onboarding...
 Status: 200, Role: student, Name: Alex Johnson
 
 4. Fetching Tasks for Student Alex...
